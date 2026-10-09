@@ -35,7 +35,7 @@ Press `?` inside the app for all keys. The essentials:
 | `a` / `o` | add an event / a todo on the selected day |
 | `enter` | open the selected day |
 | `space` `e` `d` `m` `c` | tick, edit, delete, move, recolour |
-| `g`, `t`, `[` `]` | go to a date or week, today, change month |
+| `g`, `t`, `[` `]` | go to a date, week, month (`dec`) or year (`2028`), today, change month |
 | `u` | undo the last change |
 
 ### Adding events

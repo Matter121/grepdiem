@@ -261,7 +261,7 @@ func (m *Model) inputHint() string {
 		if d, ok := calendar.ParseGoto(text, m.selected); ok {
 			return d.Format("Mon 2 Jan 2006")
 		}
-		return "e.g.  14 oct   ·   2026-10-14   ·   w50"
+		return "e.g.  14 oct   ·   2026-10-14   ·   w50   ·   dec   ·   2028"
 	}
 	return "enter save · esc cancel"
 }
@@ -272,7 +272,7 @@ func (m *Model) helpView() string {
 		{"← → / h l", "previous / next day"},
 		{"[ ]", "previous / next month"},
 		{"t", "jump to today"},
-		{"g", "go to a date or week (14 oct, 2026-10-14, 261014, 14/10, w50)"},
+		{"g", "go to a date or week (14 oct, 2026-10-14, 14/10, w50, dec, 2028)"},
 		{"a", "add an event on the selected day"},
 		{"o", "add a todo on the selected day"},
 		{"u", "undo the last change"},
