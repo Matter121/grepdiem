@@ -10,13 +10,13 @@ A small terminal calendar with events and todos.
 ## Install
 
 ```sh
-go install github.com/Matter121/TUICalendar@latest
+go install github.com/Matter121/TUICalendar/cmd/tuitodo@latest
 ```
 
 Or build from a checkout:
 
 ```sh
-go build -ldflags="-s -w" -trimpath -o tuitodo .
+go build -ldflags="-s -w" -trimpath -o tuitodo ./cmd/tuitodo
 ```
 
 ## Use
