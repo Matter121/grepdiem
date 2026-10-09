@@ -82,15 +82,17 @@ func splitQuoted(line string) (title string, words []string, quoted bool) {
 	return "", strings.Fields(line), false
 }
 
-// parseUntil recognises "until w50", "until week 50", "until 2026-12-13",
-// "until 261213" or "until 13 dec" at the end of words and returns how many
-// words it used.
+// parseUntil recognises "until" (or "u") followed by "w50", "week 50",
+// "2026-12-13", "261213", "13/12", "13.12.2026", "13 dec", "dec 13" or
+// "13 dec 2026" at the end of words and returns how many words it used.
 func parseUntil(words []string, selected Date, spec *EventSpec) int {
 	if !spec.Until.IsZero() {
 		return 0
 	}
 	n := len(words)
-	isUntil := func(i int) bool { return i >= 0 && strings.EqualFold(words[i], "until") }
+	isUntil := func(i int) bool {
+		return i >= 0 && (strings.EqualFold(words[i], "until") || strings.EqualFold(words[i], "u"))
+	}
 
 	if isUntil(n - 2) {
 		if d, ok := parseWeek(words[n-1], selected, true); ok {
@@ -98,6 +100,10 @@ func parseUntil(words []string, selected Date, spec *EventSpec) int {
 			return 2
 		}
 		if d, ok := parseTypedDate(words[n-1]); ok {
+			spec.Until = d
+			return 2
+		}
+		if d, ok := parseNumericDate(words[n-1], selected, true); ok {
 			spec.Until = d
 			return 2
 		}
@@ -110,6 +116,12 @@ func parseUntil(words []string, selected Date, spec *EventSpec) int {
 		if d, ok := parseDayMonth(words[n-2], words[n-1], selected, true); ok {
 			spec.Until = d
 			return 3
+		}
+	}
+	if isUntil(n - 4) {
+		if d, ok := parseDayMonthYear(words[n-3], words[n-2], words[n-1]); ok {
+			spec.Until = d
+			return 4
 		}
 	}
 	return 0
@@ -162,8 +174,60 @@ func parseWeekWords(word, number string, selected Date, asEnd bool) (Date, bool)
 	return parseWeek("w"+number, selected, asEnd)
 }
 
-// parseDayMonth reads "13 dec". As an end, a date already past means next year.
+// parseNumericDate reads a day-first date such as "13/12", "13.12",
+// "13/12/26" or "13.12.2026". Without a year it is the selected year; as an
+// end, a date already past means next year.
+func parseNumericDate(word string, selected Date, asEnd bool) (Date, bool) {
+	sep := "/"
+	if !strings.Contains(word, sep) {
+		sep = "."
+	}
+	parts := strings.Split(word, sep)
+	if len(parts) != 2 && len(parts) != 3 {
+		return Date{}, false
+	}
+	var nums [3]int
+	for i, part := range parts {
+		n, err := strconv.Atoi(part)
+		if err != nil {
+			return Date{}, false
+		}
+		nums[i] = n
+	}
+	d := Date{selected.Year, time.Month(nums[1]), nums[0]}
+	if len(parts) == 3 {
+		switch len(parts[2]) {
+		case 2:
+			d.Year = 2000 + nums[2]
+		case 4:
+			d.Year = nums[2]
+		default:
+			return Date{}, false
+		}
+	} else if asEnd && d.Before(selected) {
+		d.Year++
+	}
+	if d.AddDays(0) != d { // 31/2
+		return Date{}, false
+	}
+	return d, true
+}
+
+// parseDayMonthYear reads "13 dec 2026" or "dec 13 2026".
+func parseDayMonthYear(day, month, year string) (Date, bool) {
+	y, err := strconv.Atoi(year)
+	if err != nil || len(year) != 4 {
+		return Date{}, false
+	}
+	return parseDayMonth(day, month, Date{Year: y}, false)
+}
+
+// parseDayMonth reads "13 dec" or "dec 13". As an end, a date already past
+// means next year.
 func parseDayMonth(day, month string, selected Date, asEnd bool) (Date, bool) {
+	if _, named := monthNames[strings.ToLower(day)]; named {
+		day, month = month, day
+	}
 	n, err := strconv.Atoi(day)
 	m, ok := monthNames[strings.ToLower(month)]
 	if err != nil || !ok {
@@ -179,14 +243,28 @@ func parseDayMonth(day, month string, selected Date, asEnd bool) (Date, bool) {
 	return d, true
 }
 
+// parseWeekdays reads "tue", "tue,thu" or a range such as "mon-sat". A range
+// runs forwards through the week, so "fri-mon" is Friday to Monday.
 func parseWeekdays(word string) ([]time.Weekday, bool) {
 	var days []time.Weekday
 	for _, part := range strings.Split(strings.ToLower(word), ",") {
-		day, ok := weekdayNames[part]
+		from, to, ranged := strings.Cut(part, "-")
+		first, ok := weekdayNames[from]
 		if !ok {
 			return nil, false
 		}
-		days = append(days, day)
+		last := first
+		if ranged {
+			if last, ok = weekdayNames[to]; !ok {
+				return nil, false
+			}
+		}
+		for day := first; ; day = (day + 1) % 7 {
+			days = append(days, day)
+			if day == last {
+				break
+			}
+		}
 	}
 	return days, true
 }

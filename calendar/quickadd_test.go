@@ -21,6 +21,14 @@ func TestParseEvent(t *testing.T) {
 		{"Study tue thu", EventSpec{Title: "Study", Weekdays: tueThu}},
 		{"Study Thursday TUE", EventSpec{Title: "Study", Weekdays: tueThu}},
 		{"Study tue,thu", EventSpec{Title: "Study", Weekdays: tueThu}},
+		// A range of weekdays runs forwards through the week.
+		{"Work mon-sat 9-17", EventSpec{Title: "Work", Start: "09:00", End: "17:00", Weekdays: []time.Weekday{
+			time.Monday, time.Tuesday, time.Wednesday, time.Thursday, time.Friday, time.Saturday}}},
+		{"Trip Fri-Mon", EventSpec{Title: "Trip", Weekdays: []time.Weekday{
+			time.Monday, time.Friday, time.Saturday, time.Sunday}}},
+		{"Gym mon-wed,fri", EventSpec{Title: "Gym", Weekdays: []time.Weekday{
+			time.Monday, time.Tuesday, time.Wednesday, time.Friday}}},
+		{"Shift mon-", EventSpec{Title: "Shift mon-"}},
 		{"Study tue thu 13-15 until w50",
 			EventSpec{Title: "Study", Start: "13:00", End: "15:00", Weekdays: tueThu, Until: d("2026-12-13")}},
 		{"Study 13-15 tue thu until 2026-12-13",
@@ -31,6 +39,20 @@ func TestParseEvent(t *testing.T) {
 		{"Study tue until week 1", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-01-10")}},
 		{"Study tue until Week 50", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2026-12-13")}},
 		{"Study tue until 261213", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2026-12-13")}},
+		{"Study tue until 13/12", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2026-12-13")}},
+		{"Study tue until 13.12", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2026-12-13")}},
+		{"Study tue until 5/2", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-02-05")}},
+		{"Study tue until 13/12/27", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-12-13")}},
+		{"Study tue until 13.12.2027", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-12-13")}},
+		{"Study tue until dec 13", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2026-12-13")}},
+		{"Study tue until 13 dec 2027", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-12-13")}},
+		{"Study tue until 31/2", EventSpec{Title: "Study tue until 31/2"}},
+		{"Study tue until 13/12/127", EventSpec{Title: "Study tue until 13/12/127"}},
+		// "u" is short for "until".
+		{"Study tue u w50", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2026-12-13")}},
+		{"Study tue thu 13-15 U 13 dec",
+			EventSpec{Title: "Study", Start: "13:00", End: "15:00", Weekdays: tueThu, Until: d("2026-12-13")}},
+		{"Thank u", EventSpec{Title: "Thank u"}},
 		{"Study tue until 261332", EventSpec{Title: "Study tue until 261332"}},
 		{"Study tue until 5 feb", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-02-05")}},
 		// An end without weekdays repeats on the selected day's weekday.
