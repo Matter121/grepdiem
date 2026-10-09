@@ -272,7 +272,7 @@ func (m *Model) helpView() string {
 		{"← → / h l", "previous / next day"},
 		{"[ ]", "previous / next month"},
 		{"t", "jump to today"},
-		{"g", "go to a date or week (14 oct, 2026-10-14, w50)"},
+		{"g", "go to a date or week (14 oct, 2026-10-14, 261014, w50)"},
 		{"a", "add an event on the selected day"},
 		{"o", "add a todo on the selected day"},
 		{"u", "undo the last change"},
@@ -296,7 +296,7 @@ func (m *Model) helpView() string {
 		{"Dentist 10:30", "one event at 10:30"},
 		{"Lecture 9-11", "with an end time"},
 		{"Study tue thu until w50", "every Tuesday and Thursday through week 50"},
-		{"Gym mon until 13 dec", "also: until week 50, until 2026-12-13, or no end at all"},
+		{"Gym mon until 13 dec", "also: until week 50, 2026-12-13, 261213, or no end at all"},
 		{`"Apollo 13" fri 20`, "quotes keep the title exactly as typed"},
 	}
 	var b strings.Builder

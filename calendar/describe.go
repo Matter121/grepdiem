@@ -74,7 +74,8 @@ func shortClock(c Clock) string {
 	return strings.TrimSuffix(s, ":00")
 }
 
-// ParseGoto reads where to jump to: "14 oct", "2026-10-14", "w50" or "week 50".
+// ParseGoto reads where to jump to: "14 oct", "2026-10-14", "261014", "w50" or
+// "week 50".
 func ParseGoto(line string, selected Date) (Date, bool) {
 	words := strings.Fields(line)
 	switch len(words) {
@@ -82,7 +83,7 @@ func ParseGoto(line string, selected Date) (Date, bool) {
 		if d, ok := parseWeek(words[0], selected, false); ok {
 			return d, true
 		}
-		if d, err := ParseDate(words[0]); err == nil {
+		if d, ok := parseTypedDate(words[0]); ok {
 			return d, true
 		}
 	case 2:

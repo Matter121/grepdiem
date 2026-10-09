@@ -82,8 +82,9 @@ func splitQuoted(line string) (title string, words []string, quoted bool) {
 	return "", strings.Fields(line), false
 }
 
-// parseUntil recognises "until w50", "until week 50", "until 2026-12-13" or
-// "until 13 dec" at the end of words and returns how many words it used.
+// parseUntil recognises "until w50", "until week 50", "until 2026-12-13",
+// "until 261213" or "until 13 dec" at the end of words and returns how many
+// words it used.
 func parseUntil(words []string, selected Date, spec *EventSpec) int {
 	if !spec.Until.IsZero() {
 		return 0
@@ -96,7 +97,7 @@ func parseUntil(words []string, selected Date, spec *EventSpec) int {
 			spec.Until = d
 			return 2
 		}
-		if d, err := ParseDate(words[n-1]); err == nil {
+		if d, ok := parseTypedDate(words[n-1]); ok {
 			spec.Until = d
 			return 2
 		}
@@ -136,6 +137,21 @@ func parseWeek(word string, selected Date, asEnd bool) (Date, bool) {
 		sunday = monday(year + 1).AddDays(6)
 	}
 	return sunday, true
+}
+
+// parseTypedDate reads "2026-12-13" or its short form "261213".
+func parseTypedDate(word string) (Date, bool) {
+	if d, err := ParseDate(word); err == nil {
+		return d, true
+	}
+	if len(word) != 6 {
+		return Date{}, false
+	}
+	t, err := time.Parse("20060102", "20"+word)
+	if err != nil {
+		return Date{}, false
+	}
+	return DateOf(t), true
 }
 
 // parseWeekWords reads "week 50", the spelled-out form of "w50".

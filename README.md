@@ -47,7 +47,7 @@ Type a title, then any of these at the end of the line:
 | `Dentist 10:30` | one event at 10:30 |
 | `Lecture 9-11` | with an end time |
 | `Study tue thu until w50` | every Tuesday and Thursday through ISO week 50 |
-| `Gym mon until 13 dec` | also `until week 50`, `until 2026-12-13`, or leave the end out |
+| `Gym mon until 13 dec` | also `until week 50`, `until 2026-12-13`, `until 261213`, or leave the end out |
 | `"Apollo 13" fri 20` | quotes keep the title exactly as typed |
 
 A preview under the line shows how it was understood before you press Enter.

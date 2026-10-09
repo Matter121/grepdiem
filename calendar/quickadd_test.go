@@ -30,6 +30,8 @@ func TestParseEvent(t *testing.T) {
 		{"Study tue until w3", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-01-24")}},
 		{"Study tue until week 1", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-01-10")}},
 		{"Study tue until Week 50", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2026-12-13")}},
+		{"Study tue until 261213", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2026-12-13")}},
+		{"Study tue until 261332", EventSpec{Title: "Study tue until 261332"}},
 		{"Study tue until 5 feb", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-02-05")}},
 		// An end without weekdays repeats on the selected day's weekday.
 		{"Swim until w45", EventSpec{Title: "Swim", Weekdays: []time.Weekday{time.Wednesday}, Until: d("2026-11-08")}},
