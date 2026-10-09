@@ -8,8 +8,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/Matter121/tuitodo/calendar"
-	"github.com/Matter121/tuitodo/store"
+	"github.com/Matter121/TUICalendar/calendar"
+	"github.com/Matter121/TUICalendar/store"
 )
 
 type focus int

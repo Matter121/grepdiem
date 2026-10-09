@@ -1,4 +1,4 @@
-module github.com/Matter121/tuitodo
+module github.com/Matter121/TUICalendar
 
 go 1.27.1
 

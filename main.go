@@ -9,9 +9,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/Matter121/tuitodo/calendar"
-	"github.com/Matter121/tuitodo/store"
-	"github.com/Matter121/tuitodo/ui"
+	"github.com/Matter121/TUICalendar/calendar"
+	"github.com/Matter121/TUICalendar/store"
+	"github.com/Matter121/TUICalendar/ui"
 )
 
 // version is set at release time with -ldflags "-X main.version=...".

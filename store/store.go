@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Matter121/tuitodo/calendar"
+	"github.com/Matter121/TUICalendar/calendar"
 )
 
 // DefaultPath is $TUITODO_DATA, or tuitodo/data.json in the XDG data directory.

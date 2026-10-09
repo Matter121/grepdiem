@@ -10,7 +10,7 @@ A small terminal calendar with events and todos.
 ## Install
 
 ```sh
-go install github.com/Matter121/tuitodo@latest
+go install github.com/Matter121/TUICalendar@latest
 ```
 
 Or build from a checkout:
