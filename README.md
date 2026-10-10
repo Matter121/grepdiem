@@ -10,6 +10,19 @@ A small terminal calendar with events and tasks.
 
 ## Install
 
+On Linux and macOS:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Matter121/grepdiem/main/install.sh | sh
+```
+
+This puts the latest release in `~/.local/bin`; set `GREPDIEM_BIN` to install
+somewhere else. Run it again to update. On Windows, download the zip from the
+[releases page](https://github.com/Matter121/grepdiem/releases/latest) and put
+`grepdiem.exe` somewhere on your `PATH`.
+
+With Go installed:
+
 ```sh
 go install github.com/Matter121/grepdiem/cmd/grepdiem@latest
 ```
