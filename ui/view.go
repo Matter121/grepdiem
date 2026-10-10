@@ -466,6 +466,9 @@ func (m *Model) bottomView() string {
 	return " " + ansi.Truncate(first, m.width-2, "…") + "\n " + faint.Render(ansi.Truncate(second, m.width-2, "…"))
 }
 
+// hintGap sets the format example apart from how the line was understood.
+const hintGap = "     "
+
 func (m *Model) inputHint() string {
 	text := strings.TrimSpace(m.input.String())
 	if m.status != "" {
@@ -473,17 +476,17 @@ func (m *Model) inputHint() string {
 	}
 	switch m.inputKind {
 	case inputAddEvent, inputEditEvent:
+		format := "e.g.  Study tue thu 13-15 until w50   ·   Dentist 10:30"
 		if text == "" {
-			return "e.g.  Study tue thu 13-15 until w50   ·   Dentist 10:30"
+			return format
 		}
-		return calendar.Describe(calendar.ParseEvent(text, m.selected), m.selected)
+		return calendar.Describe(calendar.ParseEvent(text, m.selected), m.selected) + hintGap + format
 	case inputAddTask, inputEditTask:
-		if text == "" {
-			return "e.g.  Buy milk   ·   Pack s passport, charger, socks"
-		}
+		format := "e.g.  Buy milk   ·   Pack s passport, charger, socks"
 		if spec := calendar.ParseTask(text); len(spec.Subtasks) > 0 {
-			return calendar.DescribeTask(spec)
+			return calendar.DescribeTask(spec) + hintGap + format
 		}
+		return format
 	case inputGoto:
 		if d, ok := calendar.ParseGoto(text, m.selected); ok {
 			return d.Format("Mon 2 Jan 2006")
