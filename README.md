@@ -1,4 +1,5 @@
-<img width="610" height="185" alt="image" src="https://github.com/user-attachments/assets/f0f9e33a-3bac-463d-8525-8f49a0e5b6d7" />
+<img width="487" height="148" alt="image" src="https://github.com/user-attachments/assets/59df1248-2531-4df0-a311-79f72defdb79" />
+
 
 
 # grepdiem
