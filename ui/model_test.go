@@ -120,7 +120,7 @@ func TestFullViewListsEveryDaysEventsAndTodos(t *testing.T) {
 
 	press(m, "v")
 	full := ansi.Strip(m.View())
-	for _, want := range []string{"October 2026", "● Dentist", "[ ] Buy milk", "● Lecture"} {
+	for _, want := range []string{"October 2026", "● 10:30 Dentist", "[ ] Buy milk", "● 9 Lecture"} {
 		if !strings.Contains(full, want) {
 			t.Errorf("full view lacks %q:\n%s", want, full)
 		}

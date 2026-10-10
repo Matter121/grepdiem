@@ -35,6 +35,7 @@ const (
 
 	// Full view needs this width, which leaves a day about eight columns of title.
 	fullViewWidth = 80
+	minTitle      = 6 // an Event's time gives way before its title gets shorter than this
 	bottomLines   = 2
 )
 
@@ -171,14 +172,10 @@ func (m *Model) fullView(today calendar.Date, width, height int) string {
 
 	// Where days share an edge it takes the colour of the one that stands out
 	// more: the selected day, then today, then any other.
-	selected := lipgloss.NewStyle().Bold(true)
-	if m.mode == modeMove {
-		selected = selected.Foreground(lipgloss.Color("3"))
-	}
 	outlines := []lipgloss.Style{
 		lipgloss.NewStyle().Foreground(dim),
 		lipgloss.NewStyle().Foreground(accent),
-		selected,
+		lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true),
 	}
 	level := func(week, col int) int {
 		if week < 0 || week >= weeks || col < 0 || col >= 7 {
@@ -197,8 +194,16 @@ func (m *Model) fullView(today calendar.Date, width, height int) string {
 	rule := func(week int) string {
 		var b strings.Builder
 		for col := range 8 {
-			corner := max(level(week-1, col-1), level(week-1, col), level(week, col-1), level(week, col))
-			b.WriteString(outlines[corner].Render(junction(week > 0, week < weeks, col > 0, col < 7)))
+			// A corner joins only the edges of its own colour, so a coloured
+			// outline turns there instead of reaching into the days around it.
+			up := max(level(week-1, col-1), level(week-1, col))
+			down := max(level(week, col-1), level(week, col))
+			left := max(level(week-1, col-1), level(week, col-1))
+			right := max(level(week-1, col), level(week, col))
+			corner := max(up, down, left, right)
+			b.WriteString(outlines[corner].Render(junction(
+				week > 0 && up == corner, week < weeks && down == corner,
+				col > 0 && left == corner, col < 7 && right == corner)))
 			if col == 7 {
 				break
 			}
@@ -207,8 +212,7 @@ func (m *Model) fullView(today calendar.Date, width, height int) string {
 				date := start.AddDays(7*week + col)
 				label = " " + m.dayStyle(date, today).Render(strconv.Itoa(date.Day)) + " "
 			}
-			edge := outlines[max(level(week-1, col), level(week, col))]
-			b.WriteString(label + edge.Render(strings.Repeat("─", max(cell-1-lipgloss.Width(label), 0))))
+			b.WriteString(label + outlines[right].Render(strings.Repeat("─", max(cell-1-lipgloss.Width(label), 0))))
 		}
 		return b.String()
 	}
@@ -274,7 +278,7 @@ func (m *Model) dayBox(date, today calendar.Date, width, rows int) []string {
 		top = max(0, min(cursor-shown+1, len(items)-shown))
 	}
 	for i := top; i < top+shown; i++ {
-		line := fullRow(items[i], otherMonth)
+		line := fullRow(items[i], otherMonth, width)
 		if i == cursor {
 			line = lipgloss.NewStyle().Foreground(accent).Bold(true).Render("›") + line
 		}
@@ -293,13 +297,22 @@ func (m *Model) dayBox(date, today calendar.Date, width, rows int) []string {
 	return lines
 }
 
-// fullRow draws an Event or Todo as it appears in a day of the Full view.
-func fullRow(it item, otherMonth bool) string {
+// fullRow draws an Event or Todo as it appears in a day of the Full view. An
+// Event's start time goes faintly before its title, unless in a day only
+// width wide that would leave too little of the title to read.
+func fullRow(it item, otherMonth bool, width int) string {
+	clock := ""
+	if !it.isTodo && it.event.Start != "" {
+		clock = calendar.ShortClock(it.event.Start) + " "
+		if width-2-len(clock) < min(lipgloss.Width(it.event.Title), minTitle) {
+			clock = ""
+		}
+	}
 	switch {
 	case !it.isTodo && otherMonth:
-		return faint.Render("● " + it.event.Title)
+		return faint.Render("● " + clock + it.event.Title)
 	case !it.isTodo:
-		return marker(it.event) + " " + it.event.Title
+		return marker(it.event) + " " + faint.Render(clock) + it.event.Title
 	case !it.todo.Done.IsZero():
 		return faint.Render("[x] ") + doneText.Render(it.todo.Title)
 	case it.todo.Overdue:

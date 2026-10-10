@@ -49,9 +49,9 @@ func Line(spec EventSpec) string {
 		keywords = append(keywords, strings.ToLower(day.String()[:3]))
 	}
 	if spec.Start != "" {
-		times := shortClock(spec.Start)
+		times := ShortClock(spec.Start)
 		if spec.End != "" {
-			times += "-" + shortClock(spec.End)
+			times += "-" + ShortClock(spec.End)
 		}
 		keywords = append(keywords, times)
 	}
@@ -69,7 +69,8 @@ func Line(spec EventSpec) string {
 	return line
 }
 
-func shortClock(c Clock) string {
+// ShortClock writes a Clock as briefly as it can be typed: "9", "13:30".
+func ShortClock(c Clock) string {
 	s := strings.TrimPrefix(string(c), "0")
 	return strings.TrimSuffix(s, ":00")
 }
