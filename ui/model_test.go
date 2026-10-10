@@ -48,14 +48,14 @@ func titles(m *Model) []string {
 	return titles
 }
 
-func TestAddedTodoIsSavedAndUndoTakesItBack(t *testing.T) {
+func TestAddedTaskIsSavedAndUndoTakesItBack(t *testing.T) {
 	m, path := newModel(t)
 	press(m, "o", "Buy milk", "enter")
 	if got := titles(m); len(got) != 1 || got[0] != "Buy milk" {
 		t.Fatalf("day shows %v, want Buy milk", got)
 	}
 	if data, _ := os.ReadFile(path); !strings.Contains(string(data), "Buy milk") {
-		t.Errorf("file does not have the todo: %s", data)
+		t.Errorf("file does not have the task: %s", data)
 	}
 
 	press(m, "u")
@@ -63,7 +63,7 @@ func TestAddedTodoIsSavedAndUndoTakesItBack(t *testing.T) {
 		t.Errorf("after undo the day shows %v", got)
 	}
 	if data, _ := os.ReadFile(path); strings.Contains(string(data), "Buy milk") {
-		t.Errorf("file still has the todo: %s", data)
+		t.Errorf("file still has the task: %s", data)
 	}
 }
 
@@ -78,8 +78,8 @@ func TestFailedChangeIsReportedInsteadOfSuccess(t *testing.T) {
 	if !strings.HasPrefix(m.status, "Could not reload") {
 		t.Errorf("status = %q, want the reload failure", m.status)
 	}
-	if got := m.store.Calendar().Todos[0].Date; got != calendar.DateOf(now) {
-		t.Errorf("todo moved to %v although the change failed", got)
+	if got := m.store.Calendar().Tasks[0].Date; got != calendar.DateOf(now) {
+		t.Errorf("task moved to %v although the change failed", got)
 	}
 }
 
@@ -90,13 +90,13 @@ func TestUndoDoesNotOverwriteAChangeMadeElsewhere(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := other.Change(func(c *calendar.Calendar) { c.AddTodo(calendar.DateOf(now), "Theirs") }); err != nil {
+	if err := other.Change(func(c *calendar.Calendar) { c.AddTask(calendar.DateOf(now), "Theirs") }); err != nil {
 		t.Fatal(err)
 	}
 
 	press(m, "u")
 	if got := titles(m); len(got) != 2 {
-		t.Errorf("day shows %v, want both todos", got)
+		t.Errorf("day shows %v, want both tasks", got)
 	}
 	if !strings.Contains(m.status, "changed outside") {
 		t.Errorf("status = %q, want it to say the file changed", m.status)
@@ -107,7 +107,7 @@ func resize(m *Model, width, height int) {
 	m.Update(tea.WindowSizeMsg{Width: width, Height: height})
 }
 
-func TestFullViewListsEveryDaysEventsAndTodos(t *testing.T) {
+func TestFullViewListsEveryDaysEventsAndTasks(t *testing.T) {
 	m, _ := newModel(t)
 	resize(m, 120, 40)
 	press(m, "a", "Dentist 10:30", "enter", "o", "Buy milk", "enter")
@@ -149,14 +149,14 @@ func TestFullViewDayWithMoreThanFits(t *testing.T) {
 	press(m, "v")
 	view := ansi.Strip(m.View())
 	if !strings.Contains(view, "[ ] One") || !strings.Contains(view, "+3 more") || strings.Contains(view, "Two") {
-		t.Errorf("want the first todo and +3 more:\n%s", view)
+		t.Errorf("want the first task and +3 more:\n%s", view)
 	}
 
 	// Stepping in and down scrolls the day to the cursor.
 	press(m, "enter", "j", "j", "j")
 	view = ansi.Strip(m.View())
 	if !strings.Contains(view, "›[ ] Four") {
-		t.Errorf("want the cursor on the fourth todo:\n%s", view)
+		t.Errorf("want the cursor on the fourth task:\n%s", view)
 	}
 }
 
@@ -169,11 +169,11 @@ func TestFullViewActsOnTheItemUnderTheCursor(t *testing.T) {
 	}
 
 	press(m, "j", " ")
-	if done := m.store.Calendar().Todos[0].Done; done != calendar.DateOf(now) {
-		t.Errorf("todo done on %v, want today", done)
+	if done := m.store.Calendar().Tasks[0].Done; done != calendar.DateOf(now) {
+		t.Errorf("task done on %v, want today", done)
 	}
 	if view := ansi.Strip(m.View()); !strings.Contains(view, "[x] Buy milk") || strings.Contains(view, "· done") {
-		t.Errorf("want the todo ticked, and its tick box alone to say so:\n%s", view)
+		t.Errorf("want the task ticked, and its tick box alone to say so:\n%s", view)
 	}
 }
 
@@ -236,7 +236,7 @@ func TestCompactViewCursorMarksTheRowAKeyActsOn(t *testing.T) {
 	}
 }
 
-func TestOverdueAndDoneTodosShowInBothViews(t *testing.T) {
+func TestOverdueAndDoneTasksShowInBothViews(t *testing.T) {
 	m, _ := newModel(t)
 	resize(m, 120, 40)
 	press(m, "h", "o", "Rent", "enter", "l", "o", "Plants", "enter")
@@ -258,6 +258,6 @@ func TestOverdueAndDoneTodosShowInBothViews(t *testing.T) {
 	}
 	press(m, "enter", "k")
 	if view := ansi.Strip(m.View()); !strings.Contains(view, "Rent · overdue from Tue 6 Oct") {
-		t.Errorf("bottom line lacks where the overdue todo comes from:\n%s", view)
+		t.Errorf("bottom line lacks where the overdue task comes from:\n%s", view)
 	}
 }

@@ -130,18 +130,18 @@ func TestFirstOccurrence(t *testing.T) {
 func TestCloneIsIndependent(t *testing.T) {
 	c := New()
 	e := c.AddEvent(d("2026-10-06"), EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}})
-	todo := c.AddTodo(today, "Buy milk")
+	task := c.AddTask(today, "Buy milk")
 	snapshot := c.Clone()
 
 	c.Skip(e.ID, d("2026-10-13"))
-	c.DeleteTodo(todo.ID)
+	c.DeleteTask(task.ID)
 	c.AddEvent(today, EventSpec{Title: "New"})
 
 	if n := len(snapshot.Day(d("2026-10-13"), today).Rows); n != 1 {
 		t.Errorf("snapshot lost the skipped Occurrence")
 	}
 	day := snapshot.Day(today, today)
-	if len(day.Rows) != 1 || day.Rows[0].Kind != TodoRow {
+	if len(day.Rows) != 1 || day.Rows[0].Kind != TaskRow {
 		t.Errorf("snapshot changed: %+v", day)
 	}
 }

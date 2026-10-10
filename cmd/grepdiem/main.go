@@ -1,4 +1,4 @@
-// Grepdiem is a terminal calendar with Events and Todos.
+// Grepdiem is a terminal calendar with Events and Tasks.
 package main
 
 import (
@@ -20,7 +20,7 @@ var version = ""
 
 const usage = `Usage:
   grepdiem            open the calendar
-  grepdiem today      print today's events and todos
+  grepdiem today      print today's events and tasks
   grepdiem --version  print the version
 
 Data is kept in $GREPDIEM_DATA, or ~/.local/share/grepdiem/data.json.
@@ -90,7 +90,7 @@ func printToday(w io.Writer, cal *calendar.Calendar, today calendar.Date) {
 			if r.Kind == calendar.EventRow {
 				fmt.Fprintln(w, "\nEvents")
 			} else {
-				fmt.Fprintln(w, "\nTodos")
+				fmt.Fprintln(w, "\nTasks")
 			}
 		}
 		if r.Kind == calendar.EventRow {

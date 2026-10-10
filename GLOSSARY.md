@@ -23,24 +23,24 @@ _Avoid_: Exception, cancellation
 **All-day Event**:
 An Event with no time of day.
 
-**Todo**:
+**Task**:
 Something to be done and ticked off, attached to a date.
-_Avoid_: Task, item
+_Avoid_: Todo, item
 
 **Overdue**:
-The state of an unfinished Todo whose date has passed; it is shown under today until ticked or deleted.
+The state of an unfinished Task whose date has passed; it is shown under today until ticked or deleted.
 _Avoid_: Late, rolled over
 
 **Done**:
-The state of a Todo that has been ticked; it is shown on the day it was ticked, not the day it was attached to.
+The state of a Task that has been ticked; it is shown on the day it was ticked, not the day it was attached to.
 _Avoid_: Completed, finished, checked
 
 **Row**:
-One line in a day's listing, standing for one Event or one Todo.
+One line in a day's listing, standing for one Event or one Task.
 _Avoid_: Item, entry, line
 
 **Quick-add**:
-The single line of text from which an Event or Todo is created.
+The single line of text from which an Event or Task is created.
 _Avoid_: Command, prompt, form
 
 **Marker**:
@@ -52,13 +52,13 @@ An Event that happens on a single date and does not repeat.
 _Avoid_: Single event, normal event
 
 **Move**:
-Changing the date a Todo or One-off Event is attached to; a moved Todo is no longer Overdue.
+Changing the date a Task or One-off Event is attached to; a moved Task is no longer Overdue.
 _Avoid_: Reschedule, postpone
 
 **Compact view**:
-The small month grid with a Marker for each Event, beside a panel that lists the selected day's Events and Todos.
+The small month grid with a Marker for each Event, beside a panel that lists the selected day's Events and Tasks.
 _Avoid_: Normal view, small view, default view
 
 **Full view**:
-The month grid filling the whole terminal, with every day listing its own Events and Todos.
+The month grid filling the whole terminal, with every day listing its own Events and Tasks.
 _Avoid_: Big view, month view, expanded view

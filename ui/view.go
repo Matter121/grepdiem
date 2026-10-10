@@ -114,13 +114,13 @@ func (m *Model) gridView(today calendar.Date) string {
 }
 
 // dayNumber draws a four-column day number: today in the accent colour, the
-// selection inverted, other months faint, and underlined if it has open Todos.
+// selection inverted, other months faint, and underlined if it has open Tasks.
 func (m *Model) dayNumber(day calendar.Day, today calendar.Date) string {
 	style := m.dayStyle(day.Date, today)
 	digits := strconv.Itoa(day.Date.Day)
 	open := false
 	for _, r := range day.Rows {
-		open = open || (r.Kind == calendar.TodoRow && r.State != calendar.Done)
+		open = open || (r.Kind == calendar.TaskRow && r.State != calendar.Done)
 	}
 	return style.Render(strings.Repeat(" ", 3-len(digits))) +
 		style.Underline(open).Render(digits) + style.Render(" ")
@@ -144,7 +144,7 @@ func (m *Model) dayStyle(date, today calendar.Date) lipgloss.Style {
 }
 
 // fullView is the month grid of the Full view: every day is outlined and
-// lists its Events and Todos under its number, in as many lines as the height
+// lists its Events and Tasks under its number, in as many lines as the height
 // allows. The selected day and today are outlined in their own colours.
 func (m *Model) fullView(today calendar.Date, width, height int) string {
 	sel := m.selected
@@ -367,7 +367,7 @@ func (m *Model) panelView(today calendar.Date, width, height int) string {
 	lines := []string{heading.Render(m.selected.Format("Mon 2 Jan 2006")), faint.Render(sub), ""}
 
 	if len(rows) == 0 {
-		lines = append(lines, faint.Render("Nothing here."), faint.Render("a adds an event, o adds a todo."))
+		lines = append(lines, faint.Render("Nothing here."), faint.Render("a adds an event, o adds a task."))
 	}
 
 	timeWidth := 0
@@ -424,7 +424,7 @@ func (m *Model) bottomView() string {
 	case modeInput:
 		label := map[inputKind]string{
 			inputAddEvent: "Event", inputEditEvent: "Edit event",
-			inputAddTodo: "Todo", inputEditTodo: "Edit todo", inputGoto: "Go to",
+			inputAddTask: "Task", inputEditTask: "Edit task", inputGoto: "Go to",
 		}[m.inputKind]
 		prompt := heading.Render(label+" ›") + " "
 		first = prompt + m.input.view(m.width-lipgloss.Width(prompt)-1)
@@ -444,9 +444,9 @@ func (m *Model) bottomView() string {
 				first = m.rowDetail(rows[m.cursor])
 			}
 		case m.full:
-			second = "a event · o todo · enter open day · v compact view · ? help · q quit · ←↓↑→ day · t today · g go to · H/L month · K/J year · u undo"
+			second = "a event · o task · enter open day · v compact view · ? help · q quit · ←↓↑→ day · t today · g go to · H/L month · K/J year · u undo"
 		default:
-			second = "a event · o todo · enter open day · v full view · ? help · q quit · ←↓↑→ day · t today · g go to · H/L month · K/J year · u undo"
+			second = "a event · o task · enter open day · v full view · ? help · q quit · ←↓↑→ day · t today · g go to · H/L month · K/J year · u undo"
 		}
 	}
 	return " " + ansi.Truncate(first, m.width-2, "…") + "\n " + faint.Render(ansi.Truncate(second, m.width-2, "…"))
@@ -481,7 +481,7 @@ func (m *Model) helpView() string {
 		{"t", "jump to today"},
 		{"g", "go to a date or week (14 oct, 2026-10-14, 14/10, w50, dec, 2028)"},
 		{"a", "add an event on the selected day"},
-		{"o", "add a todo on the selected day"},
+		{"o", "add a task on the selected day"},
 		{"u", "undo the last change"},
 		{"v", "switch between the compact view and the full view"},
 		{"q", "quit"},
@@ -491,12 +491,12 @@ func (m *Model) helpView() string {
 		{"enter / tab", "open the selected day"},
 		{"", ""},
 		{"Day", ""},
-		{"↑ ↓ / k j", "select an event or todo"},
-		{"space", "tick or untick a todo"},
+		{"↑ ↓ / k j", "select an event or task"},
+		{"space", "tick or untick a task"},
 		{"e", "edit"},
 		{"d", "delete (a recurring event asks: this occurrence or all)"},
 		{"m", "move to another day"},
-		{">", "move a todo to the next day"},
+		{">", "move a task to the next day"},
 		{"c", "change an event's colour"},
 		{"esc / tab", "back to the calendar"},
 		{"", ""},

@@ -5,20 +5,20 @@ import (
 	"time"
 )
 
-func TestDayListsEventRowsThenTodoRowsWithTheirStateAndText(t *testing.T) {
+func TestDayListsEventRowsThenTaskRowsWithTheirStateAndText(t *testing.T) {
 	c := New()
 	today := d("2026-10-09")
 	c.AddEvent(today, EventSpec{Title: "Lecture", Start: "13:00", End: "15:00"})
 	c.AddEvent(d("2026-10-02"), EventSpec{Title: "Gym", Start: "07:30", Weekdays: []time.Weekday{time.Friday}})
 	c.AddEvent(today, EventSpec{Title: "Birthday"})
-	c.AddTodo(today, "Buy milk")
-	c.AddTodo(d("2026-10-06"), "Call landlord")
-	ticked := c.AddTodo(today, "Water plants")
-	c.ToggleTodo(ticked.ID, today)
+	c.AddTask(today, "Buy milk")
+	c.AddTask(d("2026-10-06"), "Call landlord")
+	ticked := c.AddTask(today, "Water plants")
+	c.ToggleTask(ticked.ID, today)
 
 	type row struct {
 		kind              RowKind
-		state             TodoState
+		state             TaskState
 		title, time, mark string
 		note              string
 	}
@@ -26,9 +26,9 @@ func TestDayListsEventRowsThenTodoRowsWithTheirStateAndText(t *testing.T) {
 		{EventRow, Open, "Birthday", "", "", ""},
 		{EventRow, Open, "Gym", "07:30", "", ""},
 		{EventRow, Open, "Lecture", "13:00–15:00", "", ""},
-		{TodoRow, Overdue, "Call landlord", "", "[ ]", "overdue from Tue 6 Oct"},
-		{TodoRow, Open, "Buy milk", "", "[ ]", ""},
-		{TodoRow, Done, "Water plants", "", "[x]", ""},
+		{TaskRow, Overdue, "Call landlord", "", "[ ]", "overdue from Tue 6 Oct"},
+		{TaskRow, Open, "Buy milk", "", "[ ]", ""},
+		{TaskRow, Done, "Water plants", "", "[x]", ""},
 	}
 
 	var got []row
@@ -45,21 +45,21 @@ func TestDayListsEventRowsThenTodoRowsWithTheirStateAndText(t *testing.T) {
 	}
 }
 
-func TestRowStandsForItsEventOrTodo(t *testing.T) {
+func TestRowStandsForItsEventOrTask(t *testing.T) {
 	c := New()
 	today := d("2026-10-09")
 	e := c.AddEvent(today, EventSpec{Title: "Lecture"})
-	todo := c.AddTodo(today, "Buy milk")
+	task := c.AddTask(today, "Buy milk")
 
 	rows := c.Day(today, today).Rows
-	if len(rows) != 2 || rows[0].Event.ID != e.ID || rows[1].Todo.ID != todo.ID {
-		t.Errorf("rows %+v, want the event %d then the todo %d", rows, e.ID, todo.ID)
+	if len(rows) != 2 || rows[0].Event.ID != e.ID || rows[1].Task.ID != task.ID {
+		t.Errorf("rows %+v, want the event %d then the task %d", rows, e.ID, task.ID)
 	}
 }
 
 func TestDayWithNothingOnItHasNoRows(t *testing.T) {
 	c := New()
-	c.AddTodo(d("2026-10-12"), "Hand in essay")
+	c.AddTask(d("2026-10-12"), "Hand in essay")
 	if rows := c.Day(d("2026-10-09"), d("2026-10-09")).Rows; len(rows) != 0 {
 		t.Errorf("rows %+v, want none", rows)
 	}

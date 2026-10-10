@@ -1,10 +1,10 @@
 # grepdiem
 
-A small terminal calendar with events and todos.
+A small terminal calendar with events and tasks.
 
 - Month grid with a panel for the selected day
 - Weekly recurring events in one line: `Study tue thu 13-15 until w50`
-- Todos per day; unfinished ones roll over to today as overdue
+- Tasks per day; unfinished ones roll over to today as overdue
 - One JSON file, no database, no config
 
 ## Install
@@ -23,7 +23,7 @@ go build -ldflags="-s -w" -trimpath -o grepdiem ./cmd/grepdiem
 
 ```sh
 grepdiem            # open the calendar
-grepdiem today      # print today's events and todos
+grepdiem today      # print today's events and tasks
 grepdiem --version
 ```
 
@@ -32,13 +32,13 @@ Press `?` inside the app for all keys. The essentials:
 | Key | Action |
 |---|---|
 | arrows / `hjkl` | move between days |
-| `a` / `o` | add an event / a todo on the selected day |
+| `a` / `o` | add an event / a task on the selected day |
 | `enter` | open the selected day |
 | `space` `e` `d` `m` `c` | tick, edit, delete, move, recolour |
 | `g`, `t` | go to a date, week, month (`dec`) or year (`2028`), today |
 | shift+arrows / `HJKL` | change month (left / right) or year (up / down) |
 | `u` | undo the last change |
-| `v` | switch between the compact view and the full view, where every day lists its events and todos |
+| `v` | switch between the compact view and the full view, where every day lists its events and tasks |
 
 ### Adding events
 

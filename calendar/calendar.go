@@ -1,8 +1,9 @@
-// Package calendar holds Events and Todos and answers what is on a given day.
+// Package calendar holds Events and Tasks and answers what is on a given day.
 // It does no I/O and never reads the system clock.
 package calendar
 
 import (
+	"encoding/json"
 	"slices"
 	"sort"
 	"time"
@@ -60,11 +61,32 @@ type Calendar struct {
 	Version int     `json:"version"`
 	NextID  int     `json:"next_id"`
 	Events  []Event `json:"events"`
-	Todos   []Todo  `json:"todos"`
+	Tasks   []Task  `json:"tasks"`
 }
 
+// version is the data format written. Version 1 kept its Tasks under "todos".
+const version = 2
+
 func New() *Calendar {
-	return &Calendar{Version: 1, NextID: 1}
+	return &Calendar{Version: version, NextID: 1}
+}
+
+// UnmarshalJSON reads the current format and version 1, and leaves the
+// Calendar as the current one either way.
+func (c *Calendar) UnmarshalJSON(data []byte) error {
+	type plain Calendar
+	file := struct {
+		*plain
+		Todos []Task `json:"todos"`
+	}{plain: (*plain)(c)}
+	if err := json.Unmarshal(data, &file); err != nil {
+		return err
+	}
+	if c.Version < 2 {
+		c.Tasks = append(c.Tasks, file.Todos...)
+	}
+	c.Version = version
+	return nil
 }
 
 func (c *Calendar) newID() int {
@@ -77,7 +99,7 @@ func (c *Calendar) newID() int {
 type Day struct {
 	Date Date
 	// Rows are the Events, All-day first and then by start time, followed by
-	// the Todos: Overdue, then open, then Done.
+	// the Tasks: Overdue, then open, then Done.
 	Rows []Row
 }
 
@@ -96,7 +118,7 @@ func (c *Calendar) Day(d, today Date) Day {
 	for _, e := range events {
 		day.Rows = append(day.Rows, Row{Kind: EventRow, Event: e})
 	}
-	day.Rows = append(day.Rows, c.todoRows(d, today)...)
+	day.Rows = append(day.Rows, c.taskRows(d, today)...)
 	return day
 }
 
@@ -178,7 +200,7 @@ func (e Event) First() Date {
 // Clone returns a copy that shares nothing with c.
 func (c *Calendar) Clone() *Calendar {
 	cp := *c
-	cp.Todos = slices.Clone(c.Todos)
+	cp.Tasks = slices.Clone(c.Tasks)
 	cp.Events = slices.Clone(c.Events)
 	for i := range cp.Events {
 		cp.Events[i].Weekdays = slices.Clone(cp.Events[i].Weekdays)

@@ -21,17 +21,17 @@ func open(t *testing.T, path string) *Store {
 	return s
 }
 
-func addTodo(t *testing.T, s *Store, title string) {
+func addTask(t *testing.T, s *Store, title string) {
 	t.Helper()
-	if err := s.Change(func(c *calendar.Calendar) { c.AddTodo(day, title) }); err != nil {
+	if err := s.Change(func(c *calendar.Calendar) { c.AddTask(day, title) }); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func todos(c *calendar.Calendar) []string {
+func tasks(c *calendar.Calendar) []string {
 	var titles []string
-	for _, todo := range c.Todos {
-		titles = append(titles, todo.Title)
+	for _, task := range c.Tasks {
+		titles = append(titles, task.Title)
 	}
 	return titles
 }
@@ -39,10 +39,10 @@ func todos(c *calendar.Calendar) []string {
 // expect checks both what s holds and what is in its file.
 func expect(t *testing.T, s *Store, want ...string) {
 	t.Helper()
-	if got := todos(s.Calendar()); !slices.Equal(got, want) {
+	if got := tasks(s.Calendar()); !slices.Equal(got, want) {
 		t.Errorf("calendar has %v, want %v", got, want)
 	}
-	if got := todos(open(t, s.path).Calendar()); !slices.Equal(got, want) {
+	if got := tasks(open(t, s.path).Calendar()); !slices.Equal(got, want) {
 		t.Errorf("file has %v, want %v", got, want)
 	}
 }
@@ -54,8 +54,8 @@ func TestMissingFileIsAnEmptyCalendar(t *testing.T) {
 
 func TestChangeIsSaved(t *testing.T) {
 	s := open(t, filepath.Join(t.TempDir(), "sub", "data.json"))
-	addTodo(t, s, "a")
-	addTodo(t, s, "b")
+	addTask(t, s, "a")
+	addTask(t, s, "b")
 	expect(t, s, "a", "b")
 }
 
@@ -64,8 +64,8 @@ func TestUndoTakesBackTheLastChangeAndASecondUndoRedoesIt(t *testing.T) {
 	if undone, err := s.Undo(); undone || err != nil {
 		t.Fatalf("Undo with nothing to undo = %v, %v", undone, err)
 	}
-	addTodo(t, s, "a")
-	addTodo(t, s, "b")
+	addTask(t, s, "a")
+	addTask(t, s, "b")
 
 	if undone, err := s.Undo(); !undone || err != nil {
 		t.Fatalf("Undo = %v, %v", undone, err)
@@ -81,9 +81,9 @@ func TestUndoTakesBackTheLastChangeAndASecondUndoRedoesIt(t *testing.T) {
 func TestChangeIsAppliedOnTopOfAChangeMadeElsewhere(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data.json")
 	s, other := open(t, path), open(t, path)
-	addTodo(t, s, "mine")
-	addTodo(t, other, "theirs")
-	addTodo(t, s, "mine too")
+	addTask(t, s, "mine")
+	addTask(t, other, "theirs")
+	addTask(t, s, "mine too")
 	expect(t, s, "mine", "theirs", "mine too")
 
 	// Undo takes back only the one change, not theirs.
@@ -96,8 +96,8 @@ func TestChangeIsAppliedOnTopOfAChangeMadeElsewhere(t *testing.T) {
 func TestUndoKeepsAChangeMadeElsewhere(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data.json")
 	s := open(t, path)
-	addTodo(t, s, "mine")
-	addTodo(t, open(t, path), "theirs")
+	addTask(t, s, "mine")
+	addTask(t, open(t, path), "theirs")
 
 	if undone, err := s.Undo(); undone || !errors.Is(err, ErrChangedElsewhere) {
 		t.Fatalf("Undo = %v, %v, want ErrChangedElsewhere", undone, err)
@@ -113,7 +113,7 @@ func TestUndoKeepsAChangeMadeElsewhere(t *testing.T) {
 func TestChangeIsNotAppliedWhenTheFileCannotBeReloaded(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "data.json")
 	s := open(t, path)
-	addTodo(t, s, "a")
+	addTask(t, s, "a")
 	if err := os.WriteFile(path, []byte("not json"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestChangeReportsAFailedSave(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err := s.Change(func(c *calendar.Calendar) { c.AddTodo(day, "a") })
+	err := s.Change(func(c *calendar.Calendar) { c.AddTask(day, "a") })
 	if err == nil {
 		t.Fatal("Change = nil, want an error")
 	}
@@ -144,6 +144,6 @@ func TestChangeReportsAFailedSave(t *testing.T) {
 	if err := os.Remove(dir); err != nil {
 		t.Fatal(err)
 	}
-	addTodo(t, s, "b")
+	addTask(t, s, "b")
 	expect(t, s, "a", "b")
 }

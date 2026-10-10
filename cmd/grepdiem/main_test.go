@@ -7,7 +7,7 @@ import (
 	"github.com/Matter121/grepdiem/calendar"
 )
 
-func TestTodayPrintsEventsThenTodos(t *testing.T) {
+func TestTodayPrintsEventsThenTasks(t *testing.T) {
 	today, err := calendar.ParseDate("2026-10-09")
 	if err != nil {
 		t.Fatal(err)
@@ -19,10 +19,10 @@ func TestTodayPrintsEventsThenTodos(t *testing.T) {
 	c := calendar.New()
 	c.AddEvent(today, calendar.EventSpec{Title: "Lecture", Start: "13:00", End: "15:00"})
 	c.AddEvent(today, calendar.EventSpec{Title: "Birthday"})
-	c.AddTodo(today, "Buy milk")
-	c.AddTodo(earlier, "Call landlord")
-	ticked := c.AddTodo(today, "Water plants")
-	c.ToggleTodo(ticked.ID, today)
+	c.AddTask(today, "Buy milk")
+	c.AddTask(earlier, "Call landlord")
+	ticked := c.AddTask(today, "Water plants")
+	c.ToggleTask(ticked.ID, today)
 
 	var out strings.Builder
 	printToday(&out, c, today)
@@ -32,7 +32,7 @@ Events
   all day      Birthday
   13:00–15:00  Lecture
 
-Todos
+Tasks
   [ ] Call landlord (overdue from Tue 6 Oct)
   [ ] Buy milk
   [x] Water plants

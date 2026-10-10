@@ -34,9 +34,9 @@ type inputKind int
 
 const (
 	inputAddEvent inputKind = iota
-	inputAddTodo
+	inputAddTask
 	inputEditEvent
-	inputEditTodo
+	inputEditTask
 	inputGoto
 )
 
@@ -206,7 +206,7 @@ func (m *Model) updateNormal(msg tea.KeyMsg) tea.Cmd {
 	case "a":
 		m.openInput(inputAddEvent, "")
 	case "o":
-		m.openInput(inputAddTodo, "")
+		m.openInput(inputAddTask, "")
 	case "g":
 		m.openInput(inputGoto, "")
 	case "u":
@@ -241,14 +241,14 @@ func (m *Model) updateNormal(msg tea.KeyMsg) tea.Cmd {
 	case "down", "j":
 		m.cursor = min(m.cursor+1, len(rows)-1)
 	case " ":
-		if it.Kind == calendar.TodoRow {
+		if it.Kind == calendar.TaskRow {
 			today := m.today()
-			m.change(func(c *calendar.Calendar) { c.ToggleTodo(it.Todo.ID, today) })
+			m.change(func(c *calendar.Calendar) { c.ToggleTask(it.Task.ID, today) })
 		}
 	case "e":
 		m.target = it
-		if it.Kind == calendar.TodoRow {
-			m.openInput(inputEditTodo, it.Todo.Title)
+		if it.Kind == calendar.TaskRow {
+			m.openInput(inputEditTask, it.Task.Title)
 		} else {
 			m.openInput(inputEditEvent, calendar.Line(it.Event.Spec()))
 		}
@@ -261,9 +261,9 @@ func (m *Model) updateNormal(msg tea.KeyMsg) tea.Cmd {
 	case "m":
 		m.startMove(it)
 	case ">":
-		if m.movable(it) && it.Kind == calendar.TodoRow {
+		if m.movable(it) && it.Kind == calendar.TaskRow {
 			next := m.selected.AddDays(1)
-			if m.change(func(c *calendar.Calendar) { c.MoveTodo(it.Todo.ID, next) }) {
+			if m.change(func(c *calendar.Calendar) { c.MoveTask(it.Task.ID, next) }) {
 				m.status = fmt.Sprintf("Moved “%s” to %s", it.Title(), next.Format("Mon 2 Jan"))
 			}
 		}
@@ -317,12 +317,12 @@ func (m *Model) submit() {
 		return
 	}
 	switch m.inputKind {
-	case inputAddTodo:
+	case inputAddTask:
 		day := m.selected
-		m.change(func(c *calendar.Calendar) { c.AddTodo(day, text) })
-	case inputEditTodo:
-		id := m.target.Todo.ID
-		m.change(func(c *calendar.Calendar) { c.RenameTodo(id, text) })
+		m.change(func(c *calendar.Calendar) { c.AddTask(day, text) })
+	case inputEditTask:
+		id := m.target.Task.ID
+		m.change(func(c *calendar.Calendar) { c.RenameTask(id, text) })
 	case inputGoto:
 		d, ok := calendar.ParseGoto(text, m.selected)
 		if !ok {
@@ -381,8 +381,8 @@ func (m *Model) ask(question string, onYes func()) {
 
 func (m *Model) delete(it calendar.Row) {
 	switch {
-	case it.Kind == calendar.TodoRow:
-		m.change(func(c *calendar.Calendar) { c.DeleteTodo(it.Todo.ID) })
+	case it.Kind == calendar.TaskRow:
+		m.change(func(c *calendar.Calendar) { c.DeleteTask(it.Task.ID) })
 	case it.Event.Recurring():
 		m.target = it
 		m.mode = modeDeleteChoice
@@ -411,7 +411,7 @@ func (m *Model) movable(it calendar.Row) bool {
 	case it.Kind == calendar.EventRow && it.Event.Recurring():
 		m.status = "A recurring event can't be moved; edit its weekdays with e"
 	case it.State == calendar.Done:
-		m.status = "A done todo can't be moved"
+		m.status = "A done task can't be moved"
 	default:
 		return true
 	}
@@ -435,8 +435,8 @@ func (m *Model) updateMove(msg tea.KeyMsg) {
 	case "enter":
 		it, day := m.target, m.selected
 		moved := m.change(func(c *calendar.Calendar) {
-			if it.Kind == calendar.TodoRow {
-				c.MoveTodo(it.Todo.ID, day)
+			if it.Kind == calendar.TaskRow {
+				c.MoveTask(it.Task.ID, day)
 			} else {
 				c.MoveEvent(it.Event.ID, day)
 			}
