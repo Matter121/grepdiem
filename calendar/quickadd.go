@@ -3,7 +3,7 @@ package calendar
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -146,17 +146,8 @@ func parseClock(s string) (Clock, bool) {
 
 // sortWeekdays orders Monday first and drops repeats.
 func sortWeekdays(days []time.Weekday) []time.Weekday {
-	if len(days) == 0 {
-		return nil
-	}
-	sort.Slice(days, func(i, j int) bool { return (days[i]+6)%7 < (days[j]+6)%7 })
-	out := days[:1]
-	for _, day := range days[1:] {
-		if day != out[len(out)-1] {
-			out = append(out, day)
-		}
-	}
-	return out
+	slices.SortFunc(days, func(a, b time.Weekday) int { return int((a+6)%7) - int((b+6)%7) })
+	return slices.Compact(days)
 }
 
 // Weekdays is a set of weekdays, written in JSON as ["tue","thu"].

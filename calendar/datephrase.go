@@ -41,12 +41,14 @@ func parseDatePhrase(words []string, selected Date, asEnd bool) (Date, bool) {
 		}
 		return parseMonth(words[0], selected, asEnd)
 	case 2:
-		if d, ok := parseWeekWords(words[0], words[1], selected, asEnd); ok {
-			return d, true
+		if strings.EqualFold(words[0], "week") {
+			return parseWeek("w"+words[1], selected, asEnd)
 		}
 		return parseDayMonth(words[0], words[1], selected, asEnd)
 	case 3:
-		return parseDayMonthYear(words[0], words[1], words[2])
+		if year, err := strconv.Atoi(words[2]); err == nil && len(words[2]) == 4 {
+			return parseDayMonth(words[0], words[1], Date{Year: year}, false)
+		}
 	}
 	return Date{}, false
 }
@@ -121,14 +123,6 @@ func parseTypedDate(word string) (Date, bool) {
 	return DateOf(t), true
 }
 
-// parseWeekWords reads "week 50", the spelled-out form of "w50".
-func parseWeekWords(word, number string, selected Date, asEnd bool) (Date, bool) {
-	if !strings.EqualFold(word, "week") {
-		return Date{}, false
-	}
-	return parseWeek("w"+number, selected, asEnd)
-}
-
 // parseNumericDate reads a day-first date such as "13/12", "13.12",
 // "13/12/26" or "13.12.2026". Without a year it is the selected year; as an
 // end, a date already past means next year.
@@ -159,26 +153,24 @@ func parseNumericDate(word string, selected Date, asEnd bool) (Date, bool) {
 		default:
 			return Date{}, false
 		}
-	} else if asEnd && d.Before(selected) {
+	}
+	return settle(d, selected, asEnd && len(parts) == 2)
+}
+
+// settle moves a date already past into next year if rollover is set, and
+// rejects one that doesn't exist, such as 31 Feb.
+func settle(d, selected Date, rollover bool) (Date, bool) {
+	if rollover && d.Before(selected) {
 		d.Year++
 	}
-	if d.AddDays(0) != d { // 31/2
+	if d.AddDays(0) != d {
 		return Date{}, false
 	}
 	return d, true
 }
 
-// parseDayMonthYear reads "13 dec 2026" or "dec 13 2026".
-func parseDayMonthYear(day, month, year string) (Date, bool) {
-	y, err := strconv.Atoi(year)
-	if err != nil || len(year) != 4 {
-		return Date{}, false
-	}
-	return parseDayMonth(day, month, Date{Year: y}, false)
-}
-
-// parseDayMonth reads "13 dec" or "dec 13". As an end, a date already past
-// means next year.
+// parseDayMonth reads "13 dec" or "dec 13", and with a year as the selected
+// day "13 dec 2026". As an end, a date already past means next year.
 func parseDayMonth(day, month string, selected Date, asEnd bool) (Date, bool) {
 	if _, named := monthNames[strings.ToLower(day)]; named {
 		day, month = month, day
@@ -188,12 +180,5 @@ func parseDayMonth(day, month string, selected Date, asEnd bool) (Date, bool) {
 	if err != nil || !ok {
 		return Date{}, false
 	}
-	d := Date{selected.Year, m, n}
-	if asEnd && d.Before(selected) {
-		d.Year++
-	}
-	if d.AddDays(0) != d { // 31 feb
-		return Date{}, false
-	}
-	return d, true
+	return settle(Date{selected.Year, m, n}, selected, asEnd)
 }

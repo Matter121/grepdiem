@@ -346,22 +346,19 @@ func (m *Model) submit() {
 			return
 		}
 		m.selectDay(d)
-	case inputAddEvent:
+	case inputAddEvent, inputEditEvent:
 		spec := calendar.ParseEvent(text, m.selected)
 		if spec.Title == "" {
 			m.status = "An event needs a title"
 			return
 		}
-		day := m.selected
-		var added calendar.Event
-		if m.change(func(c *calendar.Calendar) { added = c.AddEvent(day, spec) }) {
-			m.status = addedStatus(added, day)
-		}
-	case inputEditEvent:
-		spec := calendar.ParseEvent(text, m.selected)
-		if spec.Title == "" {
-			m.status = "An event needs a title"
-			return
+		if m.inputKind == inputAddEvent {
+			day := m.selected
+			var added calendar.Event
+			if m.change(func(c *calendar.Calendar) { added = c.AddEvent(day, spec) }) {
+				m.status = addedStatus(added, day)
+			}
+			break
 		}
 		old := m.target.Event
 		update := func() { m.change(func(c *calendar.Calendar) { c.UpdateEvent(old.ID, spec) }) }

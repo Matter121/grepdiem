@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 	"unicode"
 
@@ -27,16 +28,16 @@ func (l *lineInput) handle(msg tea.KeyMsg) {
 		if msg.Alt {
 			return
 		}
-		l.runes = append(l.runes[:l.pos], append(append([]rune{}, msg.Runes...), l.runes[l.pos:]...)...)
+		l.runes = slices.Insert(l.runes, l.pos, msg.Runes...)
 		l.pos += len(msg.Runes)
 	case tea.KeyBackspace:
 		if l.pos > 0 {
-			l.runes = append(l.runes[:l.pos-1], l.runes[l.pos:]...)
+			l.runes = slices.Delete(l.runes, l.pos-1, l.pos)
 			l.pos--
 		}
 	case tea.KeyDelete:
 		if l.pos < len(l.runes) {
-			l.runes = append(l.runes[:l.pos], l.runes[l.pos+1:]...)
+			l.runes = slices.Delete(l.runes, l.pos, l.pos+1)
 		}
 	case tea.KeyLeft:
 		l.pos = max(l.pos-1, 0)
@@ -57,7 +58,7 @@ func (l *lineInput) handle(msg tea.KeyMsg) {
 		for start > 0 && !unicode.IsSpace(l.runes[start-1]) {
 			start--
 		}
-		l.runes = append(l.runes[:start], l.runes[l.pos:]...)
+		l.runes = slices.Delete(l.runes, start, l.pos)
 		l.pos = start
 	}
 }

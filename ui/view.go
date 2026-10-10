@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -15,13 +16,11 @@ import (
 var (
 	accent       = lipgloss.Color("4")
 	dim          = lipgloss.Color("8")
-	warn         = lipgloss.Color("1")
 	markerColors = [calendar.Colors]lipgloss.Color{"1", "2", "3", "4", "5", "6"}
 
 	faint    = lipgloss.NewStyle().Faint(true)
-	bold     = lipgloss.NewStyle().Bold(true)
 	heading  = lipgloss.NewStyle().Bold(true).Foreground(accent)
-	overdue  = lipgloss.NewStyle().Foreground(warn)
+	overdue  = lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
 	doneText = lipgloss.NewStyle().Faint(true).Strikethrough(true)
 )
 
@@ -118,10 +117,9 @@ func (m *Model) gridView(today calendar.Date) string {
 func (m *Model) dayNumber(day calendar.Day, today calendar.Date) string {
 	style := m.dayStyle(day.Date, today)
 	digits := strconv.Itoa(day.Date.Day)
-	open := false
-	for _, r := range day.Rows {
-		open = open || (r.Kind == calendar.TaskRow && r.State != calendar.Done)
-	}
+	open := slices.ContainsFunc(day.Rows, func(r calendar.Row) bool {
+		return r.Kind == calendar.TaskRow && r.State != calendar.Done
+	})
 	return style.Render(strings.Repeat(" ", 3-len(digits))) +
 		style.Underline(open).Render(digits) + style.Render(" ")
 }
@@ -280,7 +278,7 @@ func (m *Model) dayBox(date, today calendar.Date, width, rows int) []string {
 	for i := top; i < top+shown; i++ {
 		line := fullRow(list[i], otherMonth, width)
 		if i == cursor {
-			line = lipgloss.NewStyle().Foreground(accent).Bold(true).Render("›") + line
+			line = heading.Render("›") + line
 		}
 		lines = append(lines, ansi.Truncate(line, width, "…"))
 	}
@@ -389,7 +387,7 @@ func (m *Model) panelView(today calendar.Date, width, height int) string {
 		line := "  "
 		if i == l.mark() {
 			cursorLine = len(lines)
-			line = lipgloss.NewStyle().Foreground(accent).Bold(true).Render("› ")
+			line = heading.Render("› ")
 		}
 		switch {
 		case r.Kind == calendar.EventRow:
@@ -458,10 +456,12 @@ func (m *Model) bottomView() string {
 			if it, ok := m.listing().current(); ok && m.full && first == "" {
 				first = m.rowDetail(it)
 			}
-		case m.full:
-			second = "a event · o task · enter open day · v compact view · ? help · q quit · ←↓↑→ day · t today · g go to · H/L month · K/J year · u undo"
 		default:
-			second = "a event · o task · enter open day · v full view · ? help · q quit · ←↓↑→ day · t today · g go to · H/L month · K/J year · u undo"
+			other := "full"
+			if m.full {
+				other = "compact"
+			}
+			second = "a event · o task · enter open day · v " + other + " view · ? help · q quit · ←↓↑→ day · t today · g go to · H/L month · K/J year · u undo"
 		}
 	}
 	return " " + ansi.Truncate(first, m.width-2, "…") + "\n " + faint.Render(ansi.Truncate(second, m.width-2, "…"))
@@ -540,15 +540,14 @@ func (m *Model) helpView() string {
 		{"Pack subtasks passport", "s is short for subtasks"},
 		{`"Season s finale" s snacks`, "quotes keep the title exactly as typed"},
 	}
-	var b strings.Builder
+	var lines []string
 	for _, k := range keys {
 		if k[1] == "" {
-			b.WriteString(heading.Render(k[0]) + "\n")
+			lines = append(lines, heading.Render(k[0]))
 			continue
 		}
-		b.WriteString(fmt.Sprintf("  %s  %s\n", bold.Render(fmt.Sprintf("%-24s", k[0])), k[1]))
+		lines = append(lines, fmt.Sprintf("  %s  %s", lipgloss.NewStyle().Bold(true).Render(fmt.Sprintf("%-24s", k[0])), k[1]))
 	}
-	lines := strings.Split(strings.TrimRight(b.String(), "\n"), "\n")
 	footer := "Press any key to close."
 	if room := m.height - 2; len(lines) > room {
 		m.helpScroll = min(m.helpScroll, len(lines)-room)
