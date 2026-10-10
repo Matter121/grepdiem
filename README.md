@@ -1,3 +1,6 @@
+<img width="610" height="185" alt="image" src="https://github.com/user-attachments/assets/f0f9e33a-3bac-463d-8525-8f49a0e5b6d7" />
+
+
 # grepdiem
 
 A small terminal calendar with events and tasks.
