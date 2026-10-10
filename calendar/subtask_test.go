@@ -90,7 +90,7 @@ func TestSubtasksAreRowsUnderTheirTask(t *testing.T) {
 	today := d("2026-10-09")
 	pack := c.AddTask(today, "Pack", "passport", "charger", "socks")
 	c.AddTask(today, "Buy milk")
-	c.ToggleSubtask(pack.ID, 0)
+	c.toggleSubtask(pack.ID, 0)
 
 	want := []line{
 		{TaskRow, Open, "[ ] Pack 1/3"},
@@ -110,7 +110,7 @@ func TestSubtasksAreRowsUnderTheirTask(t *testing.T) {
 		t.Errorf("without Subtasks: %+v", top)
 	}
 
-	c.ToggleSubtask(pack.ID, 0)
+	c.toggleSubtask(pack.ID, 0)
 	if got := lines(c.Day(today, today))[:2]; got[0].text != "[ ] Pack 0/3" || got[1].state != Open {
 		t.Errorf("after unticking: %+v", got)
 	}
@@ -120,8 +120,8 @@ func TestTickingEverySubtaskLeavesTheTaskOpen(t *testing.T) {
 	c := New()
 	today := d("2026-10-09")
 	pack := c.AddTask(today, "Pack", "passport", "charger")
-	c.ToggleSubtask(pack.ID, 0)
-	c.ToggleSubtask(pack.ID, 1)
+	c.toggleSubtask(pack.ID, 0)
+	c.toggleSubtask(pack.ID, 1)
 
 	if got := lines(c.Day(today, today))[0]; got != (line{TaskRow, Open, "[ ] Pack 2/2"}) {
 		t.Errorf("got %+v", got)
@@ -132,13 +132,13 @@ func TestDoneTaskHidesItsSubtasksUntilReopened(t *testing.T) {
 	c := New()
 	today := d("2026-10-09")
 	pack := c.AddTask(today, "Pack", "passport", "charger")
-	c.ToggleSubtask(pack.ID, 1)
-	c.ToggleTask(pack.ID, today)
+	c.toggleSubtask(pack.ID, 1)
+	c.toggleTask(pack.ID, today)
 
 	if got := lines(c.Day(today, today)); !reflect.DeepEqual(got, []line{{TaskRow, Done, "[x] Pack 1/2"}}) {
 		t.Errorf("done: %+v", got)
 	}
-	c.ToggleTask(pack.ID, today)
+	c.toggleTask(pack.ID, today)
 	want := []line{{TaskRow, Open, "[ ] Pack 1/2"}, {SubtaskRow, Open, "[ ] passport"}, {SubtaskRow, Done, "[x] charger"}}
 	if got := lines(c.Day(today, today)); !reflect.DeepEqual(got, want) {
 		t.Errorf("reopened: got %+v, want %+v", got, want)
@@ -165,8 +165,8 @@ func TestUpdateTaskKeepsTheTicksOfSubtasksItStillHas(t *testing.T) {
 	c := New()
 	today := d("2026-10-09")
 	pack := c.AddTask(today, "Pack", "passport", "charger", "socks")
-	c.ToggleSubtask(pack.ID, 0)
-	c.ToggleSubtask(pack.ID, 2)
+	c.toggleSubtask(pack.ID, 0)
+	c.toggleSubtask(pack.ID, 2)
 
 	c.UpdateTask(pack.ID, "Pack bag", "socks", "wallet", "passports")
 	want := []line{
@@ -184,7 +184,7 @@ func TestUpdateTaskMatchesSubtasksWithTheSameTitleInOrder(t *testing.T) {
 	c := New()
 	today := d("2026-10-09")
 	task := c.AddTask(today, "Laundry", "load", "load")
-	c.ToggleSubtask(task.ID, 0)
+	c.toggleSubtask(task.ID, 0)
 
 	c.UpdateTask(task.ID, "Laundry", "load", "load", "load")
 	var ticks []bool
@@ -200,11 +200,11 @@ func TestSubtaskIsRenamedAndDeletedOnItsOwn(t *testing.T) {
 	c := New()
 	today := d("2026-10-09")
 	pack := c.AddTask(today, "Pack", "passport", "charger", "socks")
-	c.ToggleSubtask(pack.ID, 1)
+	c.toggleSubtask(pack.ID, 1)
 
 	c.RenameSubtask(pack.ID, 1, "phone charger")
-	c.DeleteSubtask(pack.ID, 0)
-	c.DeleteSubtask(pack.ID, 7) // no such Subtask
+	c.Delete(row(t, c, today, "passport"))
+	c.Delete(Row{Kind: SubtaskRow, Task: pack, Sub: 7}) // no such Subtask
 	want := []line{{TaskRow, Open, "[ ] Pack 1/2"}, {SubtaskRow, Done, "[x] phone charger"}, {SubtaskRow, Open, "[ ] socks"}}
 	if got := lines(c.Day(today, today)); !reflect.DeepEqual(got, want) {
 		t.Errorf("got %+v, want %+v", got, want)
@@ -219,7 +219,7 @@ func TestSubtasksSurviveJSONAndCloneSharesNone(t *testing.T) {
 	today := d("2026-10-09")
 	pack := c.AddTask(today, "Pack", "passport", "charger")
 	c.AddTask(today, "Buy milk")
-	c.ToggleSubtask(pack.ID, 0)
+	c.toggleSubtask(pack.ID, 0)
 
 	data, err := json.Marshal(c)
 	if err != nil {
@@ -240,7 +240,7 @@ func TestSubtasksSurviveJSONAndCloneSharesNone(t *testing.T) {
 	}
 
 	before := c.Clone()
-	c.ToggleSubtask(pack.ID, 1)
+	c.toggleSubtask(pack.ID, 1)
 	if before.Tasks[0].Subtasks[1].Done {
 		t.Error("ticking a Subtask changed the clone")
 	}

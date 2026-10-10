@@ -62,7 +62,7 @@ func TestTickedOverdueTaskIsDoneOnTheDayItWasTicked(t *testing.T) {
 	c := New()
 	task := c.AddTask(d("2026-10-06"), "Call landlord")
 	today := d("2026-10-09")
-	c.ToggleTask(task.ID, today)
+	c.toggleTask(task.ID, today)
 
 	if got := tasksShown(c.Day(today, today)); !sameShown(got, []shown{{"Call landlord", Done}}) {
 		t.Errorf("day ticked: %v", got)
@@ -81,8 +81,8 @@ func TestUntickingMakesATaskOpenAgain(t *testing.T) {
 	c := New()
 	today := d("2026-10-09")
 	task := c.AddTask(today, "Buy milk")
-	c.ToggleTask(task.ID, today)
-	c.ToggleTask(task.ID, today)
+	c.toggleTask(task.ID, today)
+	c.toggleTask(task.ID, today)
 	if got := tasksShown(c.Day(today, today)); !sameShown(got, []shown{{"Buy milk", Open}}) {
 		t.Errorf("got %v", got)
 	}
@@ -93,7 +93,7 @@ func TestOpenTasksComeBeforeDoneOnes(t *testing.T) {
 	today := d("2026-10-09")
 	first := c.AddTask(today, "First")
 	c.AddTask(today, "Second")
-	c.ToggleTask(first.ID, today)
+	c.toggleTask(first.ID, today)
 
 	want := []shown{{"Second", Open}, {"First", Done}}
 	if got := tasksShown(c.Day(today, today)); !sameShown(got, want) {
@@ -103,9 +103,11 @@ func TestOpenTasksComeBeforeDoneOnes(t *testing.T) {
 
 func TestMovedOverdueTaskIsAnOrdinaryTaskOnItsNewDay(t *testing.T) {
 	c := New()
-	task := c.AddTask(d("2026-10-06"), "Call landlord")
+	c.AddTask(d("2026-10-06"), "Call landlord")
 	today := d("2026-10-09")
-	c.MoveTask(task.ID, d("2026-10-16"))
+	if err := c.Move(row(t, c, today, "Call landlord"), d("2026-10-16")); err != nil {
+		t.Fatal(err)
+	}
 
 	if got := tasksShown(c.Day(today, today)); len(got) != 0 {
 		t.Errorf("today: %v", got)
@@ -118,8 +120,8 @@ func TestMovedOverdueTaskIsAnOrdinaryTaskOnItsNewDay(t *testing.T) {
 func TestDeletedTaskIsGone(t *testing.T) {
 	c := New()
 	today := d("2026-10-09")
-	task := c.AddTask(today, "Buy milk")
-	c.DeleteTask(task.ID)
+	c.AddTask(today, "Buy milk")
+	c.Delete(row(t, c, today, "Buy milk"))
 	if got := tasksShown(c.Day(today, today)); len(got) != 0 {
 		t.Errorf("got %v", got)
 	}

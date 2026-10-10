@@ -51,12 +51,12 @@ func TestOneOffEventShowsOnlyOnItsDate(t *testing.T) {
 func TestRecurringEventOccurrences(t *testing.T) {
 	c := New()
 	// Added on Wed 7 Oct 2026, Tue+Thu, until Sun 13 Dec 2026.
-	e := c.AddEvent(d("2026-10-07"), EventSpec{
+	c.AddEvent(d("2026-10-07"), EventSpec{
 		Title:    "Study",
 		Weekdays: []time.Weekday{time.Tuesday, time.Thursday},
 		Until:    d("2026-12-13"),
 	})
-	c.Skip(e.ID, d("2026-10-15"))
+	c.Skip(row(t, c, d("2026-10-15"), "Study"))
 
 	today := d("2026-10-09")
 	cases := []struct {

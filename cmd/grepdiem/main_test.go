@@ -21,10 +21,13 @@ func TestTodayPrintsEventsThenTasks(t *testing.T) {
 	c.AddEvent(today, calendar.EventSpec{Title: "Birthday"})
 	c.AddTask(today, "Buy milk")
 	c.AddTask(earlier, "Call landlord")
-	ticked := c.AddTask(today, "Water plants")
-	c.ToggleTask(ticked.ID, today)
-	pack := c.AddTask(today, "Pack", "passport", "charger")
-	c.ToggleSubtask(pack.ID, 0)
+	c.AddTask(today, "Water plants")
+	c.AddTask(today, "Pack", "passport", "charger")
+	for _, r := range c.Day(today, today).Rows {
+		if r.Title() == "Water plants" || r.Title() == "passport" {
+			c.Tick(r, today)
+		}
+	}
 
 	var out strings.Builder
 	printToday(&out, c, today)

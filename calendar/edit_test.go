@@ -24,7 +24,7 @@ func TestEditKeepsSkipsAndColor(t *testing.T) {
 	c := New()
 	c.AddEvent(today, EventSpec{Title: "Other"})
 	e := c.AddEvent(d("2026-10-06"), EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}})
-	c.Skip(e.ID, d("2026-10-13"))
+	c.Skip(row(t, c, d("2026-10-13"), "Study"))
 	c.UpdateEvent(e.ID, EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday, time.Thursday}})
 
 	if n := len(c.Day(d("2026-10-13"), today).Rows); n != 0 {
@@ -64,9 +64,9 @@ func TestAddingWeekdaysMakesAOneOffRecurFromItsDate(t *testing.T) {
 
 func TestMoveOneOffEvent(t *testing.T) {
 	c := New()
-	e := c.AddEvent(d("2026-10-14"), EventSpec{Title: "Dentist"})
-	if !c.MoveEvent(e.ID, d("2026-10-21")) {
-		t.Fatal("move refused")
+	c.AddEvent(d("2026-10-14"), EventSpec{Title: "Dentist"})
+	if err := c.Move(row(t, c, d("2026-10-14"), "Dentist"), d("2026-10-21")); err != nil {
+		t.Fatal(err)
 	}
 	if n := len(c.Day(d("2026-10-14"), today).Rows); n != 0 {
 		t.Errorf("still on the old day")
@@ -78,9 +78,9 @@ func TestMoveOneOffEvent(t *testing.T) {
 
 func TestRecurringEventCannotBeMoved(t *testing.T) {
 	c := New()
-	e := c.AddEvent(d("2026-10-06"), EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}})
-	if c.MoveEvent(e.ID, d("2026-10-07")) {
-		t.Error("move of a Recurring Event was accepted")
+	c.AddEvent(d("2026-10-06"), EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}})
+	if err := c.Move(row(t, c, d("2026-10-06"), "Study"), d("2026-10-07")); err != ErrRecurringMove {
+		t.Errorf("move of a Recurring Event: %v, want it refused", err)
 	}
 	if n := len(c.Day(d("2026-10-06"), today).Rows); n != 1 {
 		t.Errorf("event changed despite refusal")
@@ -89,8 +89,8 @@ func TestRecurringEventCannotBeMoved(t *testing.T) {
 
 func TestDeleteEventRemovesEveryOccurrence(t *testing.T) {
 	c := New()
-	e := c.AddEvent(d("2026-10-06"), EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}})
-	c.DeleteEvent(e.ID)
+	c.AddEvent(d("2026-10-06"), EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}})
+	c.Delete(row(t, c, d("2026-10-06"), "Study"))
 	if n := len(c.Day(d("2026-10-13"), today).Rows); n != 0 {
 		t.Errorf("still there")
 	}
@@ -104,12 +104,12 @@ func TestNewEventsGetDifferentColorsAndColorCycles(t *testing.T) {
 		t.Errorf("both got colour %d", a.Color)
 	}
 	for range Colors {
-		c.CycleColor(a.ID)
+		c.CycleColor(row(t, c, today, "A"))
 	}
 	if got := c.Day(today, today).Rows[0].Event.Color; got != a.Color {
 		t.Errorf("after a full cycle colour = %d, want %d", got, a.Color)
 	}
-	c.CycleColor(a.ID)
+	c.CycleColor(row(t, c, today, "A"))
 	if got := c.Day(today, today).Rows[0].Event.Color; got == a.Color {
 		t.Errorf("colour did not change")
 	}
@@ -129,12 +129,12 @@ func TestFirstOccurrence(t *testing.T) {
 
 func TestCloneIsIndependent(t *testing.T) {
 	c := New()
-	e := c.AddEvent(d("2026-10-06"), EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}})
-	task := c.AddTask(today, "Buy milk")
+	c.AddEvent(d("2026-10-06"), EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}})
+	c.AddTask(today, "Buy milk")
 	snapshot := c.Clone()
 
-	c.Skip(e.ID, d("2026-10-13"))
-	c.DeleteTask(task.ID)
+	c.Skip(row(t, c, d("2026-10-13"), "Study"))
+	c.Delete(row(t, c, today, "Buy milk"))
 	c.AddEvent(today, EventSpec{Title: "New"})
 
 	if n := len(snapshot.Day(d("2026-10-13"), today).Rows); n != 1 {

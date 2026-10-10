@@ -11,9 +11,9 @@ func TestCalendarSurvivesJSONAndReadsNaturally(t *testing.T) {
 	c := New()
 	e := c.AddEvent(d("2026-10-06"), EventSpec{Title: "Study", Start: "13:00",
 		Weekdays: []time.Weekday{time.Tuesday, time.Thursday}, Until: d("2026-12-13")})
-	c.Skip(e.ID, d("2026-10-13"))
+	c.Skip(row(t, c, d("2026-10-13"), "Study"))
 	task := c.AddTask(d("2026-10-06"), "Call landlord")
-	c.ToggleTask(task.ID, d("2026-10-09"))
+	c.toggleTask(task.ID, d("2026-10-09"))
 	c.AddTask(d("2026-10-09"), "Buy milk")
 
 	data, err := json.Marshal(c)

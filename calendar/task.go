@@ -153,8 +153,8 @@ func (c *Calendar) AddTask(date Date, title string, subtasks ...string) Task {
 	return t
 }
 
-// ToggleTask ticks an open Task as Done today, or reopens a Done one.
-func (c *Calendar) ToggleTask(id int, today Date) {
+// toggleTask ticks an open Task as Done today, or reopens a Done one.
+func (c *Calendar) toggleTask(id int, today Date) {
 	if t := c.task(id); t != nil {
 		if t.Done.IsZero() {
 			t.Done = today
@@ -183,8 +183,8 @@ func (c *Calendar) UpdateTask(id int, title string, subtasks ...string) {
 	}
 }
 
-// ToggleSubtask ticks or unticks a Subtask. Its Task stays as it is.
-func (c *Calendar) ToggleSubtask(id, sub int) {
+// toggleSubtask ticks or unticks a Subtask. Its Task stays as it is.
+func (c *Calendar) toggleSubtask(id, sub int) {
 	if s := c.subtask(id, sub); s != nil {
 		s.Done = !s.Done
 	}
@@ -195,22 +195,4 @@ func (c *Calendar) RenameSubtask(id, sub int, title string) {
 	if s := c.subtask(id, sub); s != nil {
 		s.Title = title
 	}
-}
-
-func (c *Calendar) DeleteSubtask(id, sub int) {
-	if c.subtask(id, sub) != nil {
-		t := c.task(id)
-		t.Subtasks = slices.Delete(t.Subtasks, sub, sub+1)
-	}
-}
-
-// MoveTask attaches a Task to another date.
-func (c *Calendar) MoveTask(id int, date Date) {
-	if t := c.task(id); t != nil {
-		t.Date = date
-	}
-}
-
-func (c *Calendar) DeleteTask(id int) {
-	c.Tasks = slices.DeleteFunc(c.Tasks, func(t Task) bool { return t.ID == id })
 }

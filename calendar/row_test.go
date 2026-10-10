@@ -14,7 +14,7 @@ func TestDayListsEventRowsThenTaskRowsWithTheirStateAndText(t *testing.T) {
 	c.AddTask(today, "Buy milk")
 	c.AddTask(d("2026-10-06"), "Call landlord")
 	ticked := c.AddTask(today, "Water plants")
-	c.ToggleTask(ticked.ID, today)
+	c.toggleTask(ticked.ID, today)
 
 	type row struct {
 		kind              RowKind

@@ -125,6 +125,9 @@ func (c *Calendar) Day(d, today Date) Day {
 		day.Rows = append(day.Rows, Row{Kind: EventRow, Event: e})
 	}
 	day.Rows = append(day.Rows, c.taskRows(d, today)...)
+	for i := range day.Rows {
+		day.Rows[i].Date = d
+	}
 	return day
 }
 
@@ -153,40 +156,11 @@ func (c *Calendar) event(id int) *Event {
 	return nil
 }
 
-// Skip removes the Occurrence on date from a Recurring Event.
-func (c *Calendar) Skip(id int, date Date) {
-	if e := c.event(id); e != nil && e.OccursOn(date) {
-		e.Skips = append(e.Skips, date)
-	}
-}
-
 // UpdateEvent replaces what Quick-add describes. For a Recurring Event this
 // changes every Occurrence; removing the weekdays leaves one Event on Date.
 func (c *Calendar) UpdateEvent(id int, spec EventSpec) {
 	if e := c.event(id); e != nil {
 		e.apply(spec)
-	}
-}
-
-// MoveEvent puts a One-off Event on another date. Recurring Events can't be
-// moved; it reports whether the move happened.
-func (c *Calendar) MoveEvent(id int, date Date) bool {
-	e := c.event(id)
-	if e == nil || e.Recurring() {
-		return false
-	}
-	e.Date = date
-	return true
-}
-
-func (c *Calendar) DeleteEvent(id int) {
-	c.Events = slices.DeleteFunc(c.Events, func(e Event) bool { return e.ID == id })
-}
-
-// CycleColor gives an Event the next Marker colour.
-func (c *Calendar) CycleColor(id int) {
-	if e := c.event(id); e != nil {
-		e.Color = (e.Color + 1) % Colors
 	}
 }
 

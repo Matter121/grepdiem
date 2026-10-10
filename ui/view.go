@@ -261,12 +261,12 @@ func junction(up, down, left, right bool) string {
 // most width wide. A day with more than fits ends in "+2 more", and the
 // day the cursor is in scrolls to keep the cursor's row in sight.
 func (m *Model) dayBox(date, today calendar.Date, width, rows int) []string {
-	list := m.store.Calendar().Day(date, today).WithoutSubtasks()
-	otherMonth := date.Month != m.selected.Month
-	cursor := -1
-	if date == m.selected && m.focus == focusPanel {
-		cursor = m.cursor
+	list, cursor := listed(m.store.Calendar().Day(date, today), true), -1
+	if date == m.selected {
+		l := m.listing()
+		list, cursor = l.rows, l.mark()
 	}
+	otherMonth := date.Month != m.selected.Month
 
 	lines := make([]string, 0, rows)
 	shown, top := len(list), 0
@@ -363,7 +363,8 @@ func marker(e calendar.Event) string {
 }
 
 func (m *Model) panelView(today calendar.Date, width, height int) string {
-	rows := m.store.Calendar().Day(m.selected, today).Rows
+	l := m.listing()
+	rows := l.rows
 	_, week := m.selected.ISOWeek()
 	sub := fmt.Sprintf("week %d", week)
 	if m.selected == today {
@@ -386,7 +387,7 @@ func (m *Model) panelView(today calendar.Date, width, height int) string {
 			lines = append(lines, "")
 		}
 		line := "  "
-		if m.focus == focusPanel && i == m.cursor {
+		if i == l.mark() {
 			cursorLine = len(lines)
 			line = lipgloss.NewStyle().Foreground(accent).Bold(true).Render("› ")
 		}
@@ -454,8 +455,8 @@ func (m *Model) bottomView() string {
 		switch {
 		case m.focus == focusPanel:
 			second = "space tick · e edit · d delete · m move · esc back · ? help · j/k select · > next day · c colour"
-			if rows := m.rows(); m.full && first == "" && m.cursor < len(rows) {
-				first = m.rowDetail(rows[m.cursor])
+			if it, ok := m.listing().current(); ok && m.full && first == "" {
+				first = m.rowDetail(it)
 			}
 		case m.full:
 			second = "a event · o task · enter open day · v compact view · ? help · q quit · ←↓↑→ day · t today · g go to · H/L month · K/J year · u undo"

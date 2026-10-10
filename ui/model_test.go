@@ -42,7 +42,7 @@ func press(m *Model, keys ...string) {
 
 func titles(m *Model) []string {
 	var titles []string
-	for _, r := range m.rows() {
+	for _, r := range m.listing().rows {
 		titles = append(titles, r.Title())
 	}
 	return titles
@@ -233,6 +233,84 @@ func TestCompactViewCursorMarksTheRowAKeyActsOn(t *testing.T) {
 	view := ansi.Strip(m.View())
 	if !strings.Contains(view, "[x] Buy milk") || !strings.Contains(view, "[ ] Post letter") {
 		t.Errorf("want only Buy milk ticked:\n%s", view)
+	}
+	// Buy milk went below the open tasks; the cursor kept its place.
+	if it, ok := m.listing().current(); !ok || it.Title() != "Post letter" {
+		t.Errorf("cursor is on %q, want Post letter", it.Title())
+	}
+}
+
+func TestMoveCarriesATaskToThePickedDayAndEscPutsItBack(t *testing.T) {
+	m, _ := newModel(t)
+	resize(m, 120, 40)
+	press(m, "o", "Buy milk", "enter", "enter")
+
+	press(m, "m", "l", "esc")
+	if m.mode != modeNormal || m.selected != calendar.DateOf(now) || len(titles(m)) != 1 {
+		t.Fatalf("after a cancelled move: mode %v, selected %v, rows %v", m.mode, m.selected, titles(m))
+	}
+
+	press(m, "enter", "m", "l", "l", "enter")
+	if m.mode != modeNormal || m.status != "Moved “Buy milk” to Fri 9 Oct" {
+		t.Errorf("mode %v, status %q", m.mode, m.status)
+	}
+	if got := titles(m); len(got) != 1 || got[0] != "Buy milk" {
+		t.Errorf("the picked day shows %v", got)
+	}
+	press(m, "t")
+	if got := titles(m); len(got) != 0 {
+		t.Errorf("the task is still on its old day: %v", got)
+	}
+}
+
+func TestRowsThatCannotBeMovedSayWhy(t *testing.T) {
+	m, _ := newModel(t)
+	resize(m, 120, 40)
+	press(m, "a", "Study wed", "enter", "o", "Buy milk", "enter", "enter")
+
+	press(m, "m")
+	if m.mode != modeNormal || m.status != "A recurring event can't be moved; edit its weekdays with e" {
+		t.Errorf("m on a recurring event: mode %v, status %q", m.mode, m.status)
+	}
+	press(m, "j", " ")
+	for _, key := range []string{"m", ">"} {
+		press(m, key)
+		if m.mode != modeNormal || m.status != "A done task can't be moved" {
+			t.Errorf("%s on a done task: mode %v, status %q", key, m.mode, m.status)
+		}
+	}
+	if got := titles(m); len(got) != 2 {
+		t.Errorf("rows %v, want both still here", got)
+	}
+}
+
+func TestDeletingAnOccurrenceAsksWhetherToSkipItOrDeleteAll(t *testing.T) {
+	m, _ := newModel(t)
+	resize(m, 120, 40)
+	press(m, "a", "Study wed", "enter", "enter", "d")
+	if m.mode != modeDeleteChoice {
+		t.Fatalf("mode %v, want the choice between this occurrence and all", m.mode)
+	}
+	press(m, "t")
+	if got := titles(m); len(got) != 0 || m.status != "Skipped “Study” on Wed 7 Oct" {
+		t.Errorf("after skipping: rows %v, status %q", got, m.status)
+	}
+	press(m, "j")
+	if got := titles(m); len(got) != 1 {
+		t.Fatalf("next week shows %v, want the next occurrence", got)
+	}
+
+	press(m, "enter", "d", "a")
+	if m.mode != modeConfirm {
+		t.Fatalf("mode %v, want a confirmation", m.mode)
+	}
+	press(m, "n")
+	if got := titles(m); len(got) != 1 {
+		t.Errorf("anything but y should keep the event: %v", got)
+	}
+	press(m, "d", "a", "y", "j")
+	if got := titles(m); len(got) != 0 {
+		t.Errorf("after deleting all, a later week shows %v", got)
 	}
 }
 

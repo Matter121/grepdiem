@@ -2,6 +2,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -48,7 +49,7 @@ type Model struct {
 	selected calendar.Date
 	full     bool // Full view rather than Compact view
 	focus    focus
-	cursor   int // index into the selected day's Rows
+	cursor   int // where in the selected day's listing the cursor is
 
 	mode      mode
 	input     lineInput
@@ -81,16 +82,6 @@ func (m *Model) Init() tea.Cmd { return tick() }
 
 func (m *Model) today() calendar.Date { return calendar.DateOf(m.now()) }
 
-// rows are what the cursor moves through: the selected day's Rows, without
-// the Subtasks in the Full view, which has no room to list them.
-func (m *Model) rows() []calendar.Row {
-	day := m.store.Calendar().Day(m.selected, m.today())
-	if m.full {
-		return day.WithoutSubtasks()
-	}
-	return day.Rows
-}
-
 // change applies an edit and saves it. If that fails it says why in the
 // status line and reports false.
 func (m *Model) change(edit func(c *calendar.Calendar)) bool {
@@ -114,9 +105,9 @@ func (m *Model) selectDay(d calendar.Date) {
 
 // settle keeps the cursor and focus valid after the day's Rows change.
 func (m *Model) settle() {
-	n := len(m.rows())
-	m.cursor = max(0, min(m.cursor, n-1))
-	if n == 0 && m.mode != modeMove {
+	l := m.listing()
+	m.cursor = l.cursor
+	if len(l.rows) == 0 && m.mode != modeMove {
 		m.focus = focusGrid
 	}
 }
@@ -221,39 +212,33 @@ func (m *Model) updateNormal(msg tea.KeyMsg) tea.Cmd {
 	case "v":
 		m.toggleView()
 	case "tab":
-		if m.focus == focusGrid && len(m.rows()) > 0 {
+		if m.focus == focusGrid && len(m.listing().rows) > 0 {
 			m.focus = focusPanel
 		} else {
 			m.focus = focusGrid
 		}
 	case "enter":
-		if len(m.rows()) > 0 {
+		if len(m.listing().rows) > 0 {
 			m.focus = focusPanel
 		}
 	case "esc":
 		m.focus = focusGrid
 	}
 
-	if m.focus != focusPanel {
+	l := m.listing()
+	it, ok := l.current()
+	if !ok {
 		return nil
 	}
-	rows := m.rows()
-	if m.cursor >= len(rows) {
-		return nil
-	}
-	it := rows[m.cursor]
 	switch key {
 	case "up", "k":
-		m.cursor = max(m.cursor-1, 0)
+		m.cursor = l.step(-1)
 	case "down", "j":
-		m.cursor = min(m.cursor+1, len(rows)-1)
+		m.cursor = l.step(1)
 	case " ":
-		switch it.Kind {
-		case calendar.TaskRow:
+		if it.Kind != calendar.EventRow {
 			today := m.today()
-			m.change(func(c *calendar.Calendar) { c.ToggleTask(it.Task.ID, today) })
-		case calendar.SubtaskRow:
-			m.change(func(c *calendar.Calendar) { c.ToggleSubtask(it.Task.ID, it.Sub) })
+			m.change(func(c *calendar.Calendar) { c.Tick(it, today) })
 		}
 	case "e":
 		m.target = it
@@ -269,16 +254,13 @@ func (m *Model) updateNormal(msg tea.KeyMsg) tea.Cmd {
 		m.delete(it)
 	case "c":
 		if it.Kind == calendar.EventRow {
-			m.change(func(c *calendar.Calendar) { c.CycleColor(it.Event.ID) })
+			m.change(func(c *calendar.Calendar) { c.CycleColor(it) })
 		}
 	case "m":
 		m.startMove(it)
 	case ">":
-		if m.movable(it) && it.Kind == calendar.TaskRow {
-			next := m.selected.AddDays(1)
-			if m.change(func(c *calendar.Calendar) { c.MoveTask(it.Task.ID, next) }) {
-				m.status = fmt.Sprintf("Moved “%s” to %s", it.Title(), next.Format("Mon 2 Jan"))
-			}
+		if it.Kind != calendar.EventRow {
+			m.move(it, m.selected.AddDays(1))
 		}
 	}
 	return nil
@@ -292,15 +274,11 @@ func (m *Model) toggleView() {
 		return
 	}
 	var at calendar.Row
-	if rows := m.rows(); m.cursor < len(rows) {
-		at = rows[m.cursor]
+	if l := m.listing(); len(l.rows) > 0 {
+		at = l.rows[l.cursor]
 	}
 	m.full = !m.full
-	for i, r := range m.rows() {
-		if r.Kind != calendar.SubtaskRow && r.Event.ID == at.Event.ID && r.Task.ID == at.Task.ID {
-			m.cursor = i
-		}
-	}
+	m.cursor = m.listing().find(at)
 }
 
 func (m *Model) undoLast() {
@@ -418,46 +396,50 @@ func (m *Model) ask(question string, onYes func()) {
 }
 
 func (m *Model) delete(it calendar.Row) {
-	switch {
-	case it.Kind == calendar.TaskRow:
-		m.change(func(c *calendar.Calendar) { c.DeleteTask(it.Task.ID) })
-	case it.Kind == calendar.SubtaskRow:
-		m.change(func(c *calendar.Calendar) { c.DeleteSubtask(it.Task.ID, it.Sub) })
-	case it.Event.Recurring():
-		m.target = it
-		m.mode = modeDeleteChoice
-	default:
-		m.change(func(c *calendar.Calendar) { c.DeleteEvent(it.Event.ID) })
+	if it.Occurrence() {
+		m.target, m.mode = it, modeDeleteChoice
+		return
 	}
+	m.change(func(c *calendar.Calendar) { c.Delete(it) })
 }
 
 func (m *Model) updateDeleteChoice(msg tea.KeyMsg) {
 	m.mode = modeNormal
-	e, day := m.target.Event, m.selected
+	it := m.target
 	switch msg.String() {
 	case "t":
-		if m.change(func(c *calendar.Calendar) { c.Skip(e.ID, day) }) {
-			m.status = fmt.Sprintf("Skipped “%s” on %s", e.Title, day.Format("Mon 2 Jan"))
+		if m.change(func(c *calendar.Calendar) { c.Skip(it) }) {
+			m.status = fmt.Sprintf("Skipped “%s” on %s", it.Title(), it.Date.Format("Mon 2 Jan"))
 		}
 	case "a":
-		m.ask(fmt.Sprintf("Delete every occurrence of “%s”?", e.Title), func() {
-			m.change(func(c *calendar.Calendar) { c.DeleteEvent(e.ID) })
+		m.ask(fmt.Sprintf("Delete every occurrence of “%s”?", it.Title()), func() {
+			m.change(func(c *calendar.Calendar) { c.Delete(it) })
 		})
 	}
 }
 
+// movable reports whether a Row can be Moved, and says why in the status
+// line if it can't.
 func (m *Model) movable(it calendar.Row) bool {
-	switch {
-	case it.Kind == calendar.SubtaskRow:
-		m.status = "A subtask moves with its task"
-	case it.Kind == calendar.EventRow && it.Event.Recurring():
-		m.status = "A recurring event can't be moved; edit its weekdays with e"
-	case it.State == calendar.Done:
-		m.status = "A done task can't be moved"
-	default:
+	err := it.Movable()
+	if err == nil {
 		return true
 	}
+	m.status = sentence(err)
+	if errors.Is(err, calendar.ErrRecurringMove) {
+		m.status += "; edit its weekdays with e"
+	}
 	return false
+}
+
+// move puts a Row on day and says so, or says why it can't be Moved.
+func (m *Model) move(it calendar.Row, day calendar.Date) {
+	if !m.movable(it) {
+		return
+	}
+	if m.change(func(c *calendar.Calendar) { c.Move(it, day) }) {
+		m.status = fmt.Sprintf("Moved “%s” to %s", it.Title(), day.Format("Mon 2 Jan"))
+	}
 }
 
 func (m *Model) startMove(it calendar.Row) {
@@ -475,18 +457,8 @@ func (m *Model) updateMove(msg tea.KeyMsg) {
 	}
 	switch key {
 	case "enter":
-		it, day := m.target, m.selected
-		moved := m.change(func(c *calendar.Calendar) {
-			if it.Kind == calendar.TaskRow {
-				c.MoveTask(it.Task.ID, day)
-			} else {
-				c.MoveEvent(it.Event.ID, day)
-			}
-		})
 		m.mode = modeNormal
-		if moved {
-			m.status = fmt.Sprintf("Moved “%s” to %s", it.Title(), day.Format("Mon 2 Jan"))
-		}
+		m.move(m.target, m.selected)
 	case "esc", "q":
 		m.mode = modeNormal
 		m.selectDay(m.moveFrom)

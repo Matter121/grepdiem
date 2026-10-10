@@ -25,6 +25,7 @@ const (
 // one Subtask. Its text is plain: colour and layout are up to whoever shows it.
 type Row struct {
 	Kind  RowKind
+	Date  Date      // the day it is listed on
 	Event Event     // what an EventRow stands for
 	Task  Task      // what a TaskRow stands for, or the Task a SubtaskRow belongs to
 	Sub   int       // which of the Task's Subtasks a SubtaskRow stands for
