@@ -56,8 +56,7 @@ func (m *Model) View() string {
 
 	var body string
 	if m.full {
-		width, inner := m.width-boxExtra, bodyHeight-2
-		body = box(m.fullView(today, width, inner), width, inner, true)
+		body = m.fullView(today, m.width, bodyHeight)
 	} else if m.width >= sideBySide {
 		inner := bodyHeight - 2
 		panelWidth := m.width - gridWidth - 2*boxExtra
@@ -143,8 +142,9 @@ func (m *Model) dayStyle(date, today calendar.Date) lipgloss.Style {
 	return style
 }
 
-// fullView is the month grid of the Full view: every day lists its Events
-// and Todos under its number, in as many lines as the height allows.
+// fullView is the month grid of the Full view: every day is outlined and
+// lists its Events and Todos under its number, in as many lines as the height
+// allows. The selected day and today are outlined in their own colours.
 func (m *Model) fullView(today calendar.Date, width, height int) string {
 	sel := m.selected
 	first := calendar.Date{Year: sel.Year, Month: sel.Month, Day: 1}
@@ -153,18 +153,64 @@ func (m *Model) fullView(today calendar.Date, width, height int) string {
 	for !start.AddDays(7 * weeks).After(last) {
 		weeks++
 	}
-	cell := (width - weekColumn) / 7
+	// A day's outline is shared with its neighbours, so a cell is the day's
+	// left edge and its text, and the grid ends in one more edge.
+	cell := (width - weekColumn - 1) / 7
 	// Lines under each day's number; what doesn't divide goes to the first weeks.
-	rows, spare := max((height-3)/weeks-1, 1), max(height-3, 0)%weeks
+	rows, spare := max((height-4)/weeks-1, 1), max(height-4, 0)%weeks
 
 	names := strings.Repeat(" ", weekColumn)
 	for _, name := range []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"} {
-		names += fmt.Sprintf("%-*s", cell, name)
+		names += fmt.Sprintf(" %-*s", cell-1, name)
 	}
 	lines := []string{
 		lipgloss.PlaceHorizontal(width, lipgloss.Center, heading.Render(sel.Format("January 2006"))),
 		"",
 		faint.Render(names),
+	}
+
+	// Where days share an edge it takes the colour of the one that stands out
+	// more: the selected day, then today, then any other.
+	selected := lipgloss.NewStyle().Bold(true)
+	if m.mode == modeMove {
+		selected = selected.Foreground(lipgloss.Color("3"))
+	}
+	outlines := []lipgloss.Style{
+		lipgloss.NewStyle().Foreground(dim),
+		lipgloss.NewStyle().Foreground(accent),
+		selected,
+	}
+	level := func(week, col int) int {
+		if week < 0 || week >= weeks || col < 0 || col >= 7 {
+			return 0
+		}
+		switch start.AddDays(7*week + col) {
+		case sel:
+			return 2
+		case today:
+			return 1
+		}
+		return 0
+	}
+	// rule is the line above a week, carrying its day numbers, or the one
+	// that closes the grid.
+	rule := func(week int) string {
+		var b strings.Builder
+		for col := range 8 {
+			corner := max(level(week-1, col-1), level(week-1, col), level(week, col-1), level(week, col))
+			b.WriteString(outlines[corner].Render(junction(week > 0, week < weeks, col > 0, col < 7)))
+			if col == 7 {
+				break
+			}
+			label := ""
+			if week < weeks {
+				date := start.AddDays(7*week + col)
+				label = " " + m.dayStyle(date, today).Render(strconv.Itoa(date.Day)) + " "
+			}
+			edge := outlines[max(level(week-1, col), level(week, col))]
+			b.WriteString(label + edge.Render(strings.Repeat("─", max(cell-1-lipgloss.Width(label), 0))))
+		}
+		return b.String()
 	}
 
 	for week := range weeks {
@@ -175,24 +221,40 @@ func (m *Model) fullView(today calendar.Date, width, height int) string {
 			rows++
 		}
 		block := make([]string, 1+rows)
-		block[0] = faint.Render(fmt.Sprintf("%*d  ", weekColumn-2, number))
+		block[0] = faint.Render(fmt.Sprintf("%*d  ", weekColumn-2, number)) + rule(week)
 		for i := 1; i <= rows; i++ {
 			block[i] = strings.Repeat(" ", weekColumn)
 		}
-		for i := range 7 {
-			date := monday.AddDays(i)
-			for j, line := range m.dayBox(date, today, cell-1, rows) {
-				pad := strings.Repeat(" ", max(cell-lipgloss.Width(line), 0))
-				block[j] += line + pad
+		for col := range 7 {
+			side := outlines[max(level(week, col-1), level(week, col))].Render("│")
+			for j, line := range m.dayBox(monday.AddDays(col), today, cell-1, rows) {
+				pad := strings.Repeat(" ", max(cell-1-lipgloss.Width(line), 0))
+				block[1+j] += side + line + pad
 			}
+		}
+		for i := 1; i <= rows; i++ {
+			block[i] += outlines[level(week, 6)].Render("│")
 		}
 		lines = append(lines, block...)
 	}
+	lines = append(lines, strings.Repeat(" ", weekColumn)+rule(weeks))
 	return strings.Join(lines, "\n")
 }
 
-// dayBox draws one day of the Full view as its number and rows lines, each
-// at most width wide. A day with more than fits ends in "+2 more", and the
+// junction is the box-drawing character joining outlines that leave a point
+// in the given directions.
+func junction(up, down, left, right bool) string {
+	i := 0
+	for bit, on := range []bool{up, down, left, right} {
+		if on {
+			i |= 1 << bit
+		}
+	}
+	return string([]rune(" ╵╷│╴╯╮┤╶╰╭├─┴┬┼")[i])
+}
+
+// dayBox draws what is on one day of the Full view in rows lines, each at
+// most width wide. A day with more than fits ends in "+2 more", and the
 // day the cursor is in scrolls to keep the cursor's row in sight.
 func (m *Model) dayBox(date, today calendar.Date, width, rows int) []string {
 	items := dayItems(m.store.Calendar().Day(date, today))
@@ -202,7 +264,7 @@ func (m *Model) dayBox(date, today calendar.Date, width, rows int) []string {
 		cursor = m.cursor
 	}
 
-	lines := []string{m.dayStyle(date, today).Render(strconv.Itoa(date.Day))}
+	lines := make([]string, 0, rows)
 	shown, top := len(items), 0
 	if len(items) > rows {
 		shown = rows - 1
@@ -218,14 +280,14 @@ func (m *Model) dayBox(date, today calendar.Date, width, rows int) []string {
 		}
 		lines = append(lines, ansi.Truncate(line, width, "…"))
 	}
-	if hidden := len(items) - shown; hidden > 0 && len(lines) <= rows {
+	if hidden := len(items) - shown; hidden > 0 && len(lines) < rows {
 		more := fmt.Sprintf("+%d more", hidden)
 		if shown == 0 {
 			more = fmt.Sprintf("%d items", hidden)
 		}
 		lines = append(lines, faint.Render(ansi.Truncate(more, width, "…")))
 	}
-	for len(lines) <= rows {
+	for len(lines) < rows {
 		lines = append(lines, "")
 	}
 	return lines
