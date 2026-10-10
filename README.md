@@ -37,6 +37,7 @@ Press `?` inside the app for all keys. The essentials:
 | `space` `e` `d` `m` `c` | tick, edit, delete, move, recolour |
 | `g`, `t`, `[` `]` | go to a date, week, month (`dec`) or year (`2028`), today, change month |
 | `u` | undo the last change |
+| `v` | switch between the compact view and the full view, where every day lists its events and todos |
 
 ### Adding events
 
@@ -48,7 +49,7 @@ Type a title, then any of these at the end of the line:
 | `Lecture 9-11` | with an end time |
 | `Study tue thu until w50` | every Tuesday and Thursday through ISO week 50 |
 | `Work mon-sat 9-17` | every day from Monday to Saturday |
-| `Gym mon until 13 dec` | also `until week 50`, `until 2026-12-13`, `until 261213`, `until 13/12`, `until 13.12.2026`, `until dec 13`, or leave the end out |
+| `Gym mon until 13 dec` | also `until week 50`, `until 2026-12-13`, `until 261213`, `until 13/12`, `until 13.12.2026`, `until dec 13`, `until dec` (the first of December), or leave the end out |
 | `Gym mon u 13 dec` | `u` is short for `until` |
 | `"Apollo 13" fri 20` | quotes keep the title exactly as typed |
 

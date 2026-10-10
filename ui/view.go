@@ -26,12 +26,16 @@ var (
 )
 
 const (
-	cellWidth   = 6
-	gridWidth   = 4 + 7*cellWidth // week number column + seven days
-	gridHeight  = 3 + 6*2         // title, gap, weekday names, six weeks of two lines
-	boxExtra    = 4               // border and padding on both sides
-	sideBySide  = 80              // narrower than this, the panel goes under the grid
-	bottomLines = 2
+	cellWidth  = 6
+	gridWidth  = 4 + 7*cellWidth // week number column + seven days
+	gridHeight = 3 + 6*2         // title, gap, weekday names, six weeks of two lines
+	boxExtra   = 4               // border and padding on both sides
+	sideBySide = 80              // narrower than this, the panel goes under the grid
+	weekColumn = 4               // the week number and its gap
+
+	// Full view needs this width, which leaves a day about eight columns of title.
+	fullViewWidth = 80
+	bottomLines   = 2
 )
 
 func (m *Model) View() string {
@@ -51,7 +55,10 @@ func (m *Model) View() string {
 	gridFocused := m.focus == focusGrid
 
 	var body string
-	if m.width >= sideBySide {
+	if m.full {
+		width, inner := m.width-boxExtra, bodyHeight-2
+		body = box(m.fullView(today, width, inner), width, inner, true)
+	} else if m.width >= sideBySide {
 		inner := bodyHeight - 2
 		panelWidth := m.width - gridWidth - 2*boxExtra
 		body = lipgloss.JoinHorizontal(lipgloss.Top,
@@ -97,7 +104,7 @@ func (m *Model) gridView(today calendar.Date) string {
 		markers := "    "
 		for i := range 7 {
 			date := monday.AddDays(i)
-			day := m.cal.Day(date, today)
+			day := m.store.Calendar().Day(date, today)
 			numbers += " " + m.dayNumber(day, today) + " "
 			markers += "  " + markerRow(day.Events)
 		}
@@ -109,19 +116,7 @@ func (m *Model) gridView(today calendar.Date) string {
 // dayNumber draws a four-column day number: today in the accent colour, the
 // selection inverted, other months faint, and underlined if it has open Todos.
 func (m *Model) dayNumber(day calendar.Day, today calendar.Date) string {
-	style := lipgloss.NewStyle()
-	switch {
-	case day.Date == today:
-		style = style.Bold(true).Foreground(accent)
-	case day.Date.Month != m.selected.Month:
-		style = style.Faint(true)
-	}
-	if day.Date == m.selected {
-		style = style.Reverse(true)
-		if m.mode == modeMove {
-			style = style.Foreground(lipgloss.Color("3"))
-		}
-	}
+	style := m.dayStyle(day.Date, today)
 	digits := strconv.Itoa(day.Date.Day)
 	open := false
 	for _, t := range day.Todos {
@@ -129,6 +124,141 @@ func (m *Model) dayNumber(day calendar.Day, today calendar.Date) string {
 	}
 	return style.Render(strings.Repeat(" ", 3-len(digits))) +
 		style.Underline(open).Render(digits) + style.Render(" ")
+}
+
+func (m *Model) dayStyle(date, today calendar.Date) lipgloss.Style {
+	style := lipgloss.NewStyle()
+	switch {
+	case date == today:
+		style = style.Bold(true).Foreground(accent)
+	case date.Month != m.selected.Month:
+		style = style.Faint(true)
+	}
+	if date == m.selected {
+		style = style.Reverse(true)
+		if m.mode == modeMove {
+			style = style.Foreground(lipgloss.Color("3"))
+		}
+	}
+	return style
+}
+
+// fullView is the month grid of the Full view: every day lists its Events
+// and Todos under its number, in as many lines as the height allows.
+func (m *Model) fullView(today calendar.Date, width, height int) string {
+	sel := m.selected
+	first := calendar.Date{Year: sel.Year, Month: sel.Month, Day: 1}
+	start, last := first.Monday(), first.AddMonths(1).AddDays(-1)
+	weeks := 0
+	for !start.AddDays(7 * weeks).After(last) {
+		weeks++
+	}
+	cell := (width - weekColumn) / 7
+	// Lines under each day's number; what doesn't divide goes to the first weeks.
+	rows, spare := max((height-3)/weeks-1, 1), max(height-3, 0)%weeks
+
+	names := strings.Repeat(" ", weekColumn)
+	for _, name := range []string{"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"} {
+		names += fmt.Sprintf("%-*s", cell, name)
+	}
+	lines := []string{
+		lipgloss.PlaceHorizontal(width, lipgloss.Center, heading.Render(sel.Format("January 2006"))),
+		"",
+		faint.Render(names),
+	}
+
+	for week := range weeks {
+		monday := start.AddDays(7 * week)
+		_, number := monday.ISOWeek()
+		rows := rows
+		if week < spare {
+			rows++
+		}
+		block := make([]string, 1+rows)
+		block[0] = faint.Render(fmt.Sprintf("%*d  ", weekColumn-2, number))
+		for i := 1; i <= rows; i++ {
+			block[i] = strings.Repeat(" ", weekColumn)
+		}
+		for i := range 7 {
+			date := monday.AddDays(i)
+			for j, line := range m.dayBox(date, today, cell-1, rows) {
+				pad := strings.Repeat(" ", max(cell-lipgloss.Width(line), 0))
+				block[j] += line + pad
+			}
+		}
+		lines = append(lines, block...)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// dayBox draws one day of the Full view as its number and rows lines, each
+// at most width wide. A day with more than fits ends in "+2 more", and the
+// day the cursor is in scrolls to keep the cursor's row in sight.
+func (m *Model) dayBox(date, today calendar.Date, width, rows int) []string {
+	items := dayItems(m.store.Calendar().Day(date, today))
+	otherMonth := date.Month != m.selected.Month
+	cursor := -1
+	if date == m.selected && m.focus == focusPanel {
+		cursor = m.cursor
+	}
+
+	lines := []string{m.dayStyle(date, today).Render(strconv.Itoa(date.Day))}
+	shown, top := len(items), 0
+	if len(items) > rows {
+		shown = rows - 1
+		if shown == 0 && cursor >= 0 {
+			shown = 1 // no room for both: the cursor's row matters more than the count
+		}
+		top = max(0, min(cursor-shown+1, len(items)-shown))
+	}
+	for i := top; i < top+shown; i++ {
+		line := fullRow(items[i], otherMonth)
+		if i == cursor {
+			line = lipgloss.NewStyle().Foreground(accent).Bold(true).Render("›") + line
+		}
+		lines = append(lines, ansi.Truncate(line, width, "…"))
+	}
+	if hidden := len(items) - shown; hidden > 0 && len(lines) <= rows {
+		more := fmt.Sprintf("+%d more", hidden)
+		if shown == 0 {
+			more = fmt.Sprintf("%d items", hidden)
+		}
+		lines = append(lines, faint.Render(ansi.Truncate(more, width, "…")))
+	}
+	for len(lines) <= rows {
+		lines = append(lines, "")
+	}
+	return lines
+}
+
+// fullRow draws an Event or Todo as it appears in a day of the Full view.
+func fullRow(it item, otherMonth bool) string {
+	switch {
+	case !it.isTodo && otherMonth:
+		return faint.Render("● " + it.event.Title)
+	case !it.isTodo:
+		return marker(it.event) + " " + it.event.Title
+	case !it.todo.Done.IsZero():
+		return faint.Render("[x] ") + doneText.Render(it.todo.Title)
+	case it.todo.Overdue:
+		return overdue.Render("[ ] " + it.todo.Title)
+	case otherMonth:
+		return faint.Render("[ ] " + it.todo.Title)
+	}
+	return "[ ] " + it.todo.Title
+}
+
+// itemDetail says in full what a row of the Full view had no room for.
+func (m *Model) itemDetail(it item) string {
+	switch {
+	case !it.isTodo:
+		return calendar.Describe(it.event.Spec(), m.selected)
+	case !it.todo.Done.IsZero():
+		return it.todo.Title + " · done"
+	case it.todo.Overdue:
+		return it.todo.Title + " · overdue from " + it.todo.Date.Format("Mon 2 Jan")
+	}
+	return it.todo.Title
 }
 
 // markerRow draws up to three Markers and a "+" if there are more Events.
@@ -152,7 +282,7 @@ func marker(e calendar.Event) string {
 }
 
 func (m *Model) panelView(today calendar.Date, width, height int) string {
-	day := m.cal.Day(m.selected, today)
+	day := m.store.Calendar().Day(m.selected, today)
 	_, week := m.selected.ISOWeek()
 	sub := fmt.Sprintf("week %d", week)
 	if m.selected == today {
@@ -237,10 +367,16 @@ func (m *Model) bottomView() string {
 		first = fmt.Sprintf("Moving “%s”: pick a day", m.target.title())
 		second = "←↓↑→ day · [ ] month · t today · enter drop here · esc cancel"
 	default:
-		if m.focus == focusPanel {
+		switch {
+		case m.focus == focusPanel:
 			second = "space tick · e edit · d delete · m move · esc back · ? help · j/k select · > next day · c colour"
-		} else {
-			second = "a event · o todo · enter open day · ? help · q quit · ←↓↑→ day · t today · g go to · [ ] month · u undo"
+			if items := m.items(); m.full && first == "" && m.cursor < len(items) {
+				first = m.itemDetail(items[m.cursor])
+			}
+		case m.full:
+			second = "a event · o todo · enter open day · v compact view · ? help · q quit · ←↓↑→ day · t today · g go to · [ ] month · u undo"
+		default:
+			second = "a event · o todo · enter open day · v full view · ? help · q quit · ←↓↑→ day · t today · g go to · [ ] month · u undo"
 		}
 	}
 	return " " + ansi.Truncate(first, m.width-2, "…") + "\n " + faint.Render(ansi.Truncate(second, m.width-2, "…"))
@@ -276,6 +412,7 @@ func (m *Model) helpView() string {
 		{"a", "add an event on the selected day"},
 		{"o", "add a todo on the selected day"},
 		{"u", "undo the last change"},
+		{"v", "switch between the compact view and the full view"},
 		{"q", "quit"},
 		{"", ""},
 		{"Calendar", ""},
@@ -297,7 +434,7 @@ func (m *Model) helpView() string {
 		{"Lecture 9-11", "with an end time"},
 		{"Study tue thu until w50", "every Tuesday and Thursday through week 50"},
 		{"Work mon-sat 9-17", "every day from Monday to Saturday"},
-		{"Gym mon until 13 dec", "also: until week 50, 2026-12-13, 261213, 13/12, or no end"},
+		{"Gym mon until 13 dec", "also: until week 50, 2026-12-13, 261213, 13/12, dec (its first day), or no end"},
 		{"Gym mon u 13 dec", "u is short for until"},
 		{`"Apollo 13" fri 20`, "quotes keep the title exactly as typed"},
 	}

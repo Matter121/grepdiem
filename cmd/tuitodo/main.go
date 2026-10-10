@@ -54,16 +54,15 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	st := store.New(path)
-	cal, err := st.Load()
+	st, err := store.Open(path)
 	if err != nil {
 		return err
 	}
 	if command == "today" {
-		printToday(cal, calendar.DateOf(time.Now()))
+		printToday(st.Calendar(), calendar.DateOf(time.Now()))
 		return nil
 	}
-	_, err = tea.NewProgram(ui.New(cal, st, time.Now), tea.WithAltScreen()).Run()
+	_, err = tea.NewProgram(ui.New(st, time.Now), tea.WithAltScreen()).Run()
 	return err
 }
 

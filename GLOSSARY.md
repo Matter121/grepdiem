@@ -50,3 +50,11 @@ _Avoid_: Single event, normal event
 **Move**:
 Changing the date a Todo or One-off Event is attached to; a moved Todo is no longer Overdue.
 _Avoid_: Reschedule, postpone
+
+**Compact view**:
+The small month grid with a Marker for each Event, beside a panel that lists the selected day's Events and Todos.
+_Avoid_: Normal view, small view, default view
+
+**Full view**:
+The month grid filling the whole terminal, with every day listing its own Events and Todos.
+_Avoid_: Big view, month view, expanded view

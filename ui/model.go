@@ -55,11 +55,11 @@ func (it item) title() string {
 }
 
 type Model struct {
-	cal   *calendar.Calendar
 	store *store.Store
 	now   func() time.Time
 
 	selected calendar.Date
+	full     bool // Full view rather than Compact view
 	focus    focus
 	cursor   int // index into the day panel's items
 
@@ -73,15 +73,14 @@ type Model struct {
 
 	helpScroll int
 
-	undo   *calendar.Calendar
 	status string
 	width  int
 	height int
 }
 
-// New builds the UI on a loaded Calendar. now is the clock "today" comes from.
-func New(cal *calendar.Calendar, st *store.Store, now func() time.Time) *Model {
-	return &Model{cal: cal, store: st, now: now, selected: calendar.DateOf(now())}
+// New builds the UI on an open Store. now is the clock "today" comes from.
+func New(st *store.Store, now func() time.Time) *Model {
+	return &Model{store: st, now: now, selected: calendar.DateOf(now())}
 }
 
 type tickMsg struct{}
@@ -96,7 +95,11 @@ func (m *Model) Init() tea.Cmd { return tick() }
 func (m *Model) today() calendar.Date { return calendar.DateOf(m.now()) }
 
 func (m *Model) items() []item {
-	day := m.cal.Day(m.selected, m.today())
+	return dayItems(m.store.Calendar().Day(m.selected, m.today()))
+}
+
+// dayItems lists a day's rows in the order they are shown: Events, then Todos.
+func dayItems(day calendar.Day) []item {
 	var items []item
 	for _, e := range day.Events {
 		items = append(items, item{event: e})
@@ -107,26 +110,20 @@ func (m *Model) items() []item {
 	return items
 }
 
-// change applies an edit and saves it. If the file changed on disk since it
-// was read, the edit is applied on top of what is there now.
-func (m *Model) change(edit func(c *calendar.Calendar)) {
-	if m.store.Changed() {
-		fresh, err := m.store.Load()
-		if err != nil {
-			m.status = "Could not reload: " + err.Error()
-			return
-		}
-		m.cal = fresh
+// change applies an edit and saves it. If that fails it says why in the
+// status line and reports false.
+func (m *Model) change(edit func(c *calendar.Calendar)) bool {
+	if err := m.store.Change(edit); err != nil {
+		m.status = sentence(err)
+		return false
 	}
-	m.undo = m.cal.Clone()
-	edit(m.cal)
-	m.save()
+	return true
 }
 
-func (m *Model) save() {
-	if err := m.store.Save(m.cal); err != nil {
-		m.status = "Could not save: " + err.Error()
-	}
+// sentence turns an error into a status line.
+func sentence(err error) string {
+	s := err.Error()
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 func (m *Model) selectDay(d calendar.Date) {
@@ -147,6 +144,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		if m.width < fullViewWidth {
+			m.full = false
+		}
 	case tickMsg:
 		return m, tick()
 	case tea.KeyMsg:
@@ -233,6 +233,8 @@ func (m *Model) updateNormal(msg tea.KeyMsg) tea.Cmd {
 		m.openInput(inputGoto, "")
 	case "u":
 		m.undoLast()
+	case "v":
+		m.toggleView()
 	case "tab":
 		if m.focus == focusGrid && len(m.items()) > 0 {
 			m.focus = focusPanel
@@ -283,21 +285,33 @@ func (m *Model) updateNormal(msg tea.KeyMsg) tea.Cmd {
 	case ">":
 		if m.movable(it) && it.isTodo {
 			next := m.selected.AddDays(1)
-			m.change(func(c *calendar.Calendar) { c.MoveTodo(it.todo.ID, next) })
-			m.status = fmt.Sprintf("Moved “%s” to %s", it.title(), next.Format("Mon 2 Jan"))
+			if m.change(func(c *calendar.Calendar) { c.MoveTodo(it.todo.ID, next) }) {
+				m.status = fmt.Sprintf("Moved “%s” to %s", it.title(), next.Format("Mon 2 Jan"))
+			}
 		}
 	}
 	return nil
 }
 
-func (m *Model) undoLast() {
-	if m.undo == nil {
-		m.status = "Nothing to undo"
+// toggleView switches between Compact view and Full view.
+func (m *Model) toggleView() {
+	if !m.full && m.width < fullViewWidth {
+		m.status = fmt.Sprintf("Full view needs a terminal at least %d wide", fullViewWidth)
 		return
 	}
-	m.cal, m.undo = m.undo, m.cal
-	m.save()
-	m.status = "Undone (u again to redo)"
+	m.full = !m.full
+}
+
+func (m *Model) undoLast() {
+	undone, err := m.store.Undo()
+	switch {
+	case err != nil:
+		m.status = sentence(err)
+	case !undone:
+		m.status = "Nothing to undo"
+	default:
+		m.status = "Undone (u again to redo)"
+	}
 }
 
 func (m *Model) openInput(kind inputKind, text string) {
@@ -346,8 +360,9 @@ func (m *Model) submit() {
 		}
 		day := m.selected
 		var added calendar.Event
-		m.change(func(c *calendar.Calendar) { added = c.AddEvent(day, spec) })
-		m.status = addedStatus(added, day)
+		if m.change(func(c *calendar.Calendar) { added = c.AddEvent(day, spec) }) {
+			m.status = addedStatus(added, day)
+		}
 	case inputEditEvent:
 		spec := calendar.ParseEvent(text, m.selected)
 		if spec.Title == "" {
@@ -403,8 +418,9 @@ func (m *Model) updateDeleteChoice(msg tea.KeyMsg) {
 	e, day := m.target.event, m.selected
 	switch msg.String() {
 	case "t":
-		m.change(func(c *calendar.Calendar) { c.Skip(e.ID, day) })
-		m.status = fmt.Sprintf("Skipped “%s” on %s", e.Title, day.Format("Mon 2 Jan"))
+		if m.change(func(c *calendar.Calendar) { c.Skip(e.ID, day) }) {
+			m.status = fmt.Sprintf("Skipped “%s” on %s", e.Title, day.Format("Mon 2 Jan"))
+		}
 	case "a":
 		m.ask(fmt.Sprintf("Delete every occurrence of “%s”?", e.Title), func() {
 			m.change(func(c *calendar.Calendar) { c.DeleteEvent(e.ID) })
@@ -440,7 +456,7 @@ func (m *Model) updateMove(msg tea.KeyMsg) {
 	switch key {
 	case "enter":
 		it, day := m.target, m.selected
-		m.change(func(c *calendar.Calendar) {
+		moved := m.change(func(c *calendar.Calendar) {
 			if it.isTodo {
 				c.MoveTodo(it.todo.ID, day)
 			} else {
@@ -448,7 +464,9 @@ func (m *Model) updateMove(msg tea.KeyMsg) {
 			}
 		})
 		m.mode = modeNormal
-		m.status = fmt.Sprintf("Moved “%s” to %s", it.title(), day.Format("Mon 2 Jan"))
+		if moved {
+			m.status = fmt.Sprintf("Moved “%s” to %s", it.title(), day.Format("Mon 2 Jan"))
+		}
 	case "esc", "q":
 		m.mode = modeNormal
 		m.selectDay(m.moveFrom)

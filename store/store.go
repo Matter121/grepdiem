@@ -29,38 +29,94 @@ func DefaultPath() (string, error) {
 	return filepath.Join(dir, "tuitodo", "data.json"), nil
 }
 
-// Store is the data file and what it looked like when last read or written.
+// ErrChangedElsewhere is returned by Undo when the data file was modified by
+// someone else, so that undoing would have thrown their change away.
+var ErrChangedElsewhere = errors.New("the data file changed outside tuitodo, so there is nothing to undo")
+
+// Store is the Calendar and the data file it is kept in. Every change goes
+// through Change or Undo, which keep the two in step.
 type Store struct {
-	path    string
+	path string
+	cal  *calendar.Calendar
+	undo *calendar.Calendar // the Calendar before the last change
+
+	// What the file looked like when last read or written.
 	modTime time.Time
 	size    int64
 }
 
-func New(path string) *Store { return &Store{path: path} }
+// Open reads the Calendar at path. A missing file is an empty Calendar.
+func Open(path string) (*Store, error) {
+	s := &Store{path: path}
+	if err := s.load(); err != nil {
+		return nil, err
+	}
+	return s, nil
+}
 
-func (s *Store) Path() string { return s.path }
+// Calendar returns the Calendar as of the last Open, Change or Undo. It is
+// for reading: edits made outside Change are not saved.
+func (s *Store) Calendar() *calendar.Calendar { return s.cal }
 
-// Load reads the Calendar. A missing file is an empty Calendar.
-func (s *Store) Load() (*calendar.Calendar, error) {
+// Change applies an edit and saves it. If the file changed on disk since it
+// was read, the edit is applied on top of what is there now. If that reload
+// fails the edit is not applied; if the save fails the edit stays in the
+// Calendar and is written by the next Change that succeeds.
+func (s *Store) Change(edit func(c *calendar.Calendar)) error {
+	if s.changed() {
+		if err := s.load(); err != nil {
+			return fmt.Errorf("could not reload: %w", err)
+		}
+	}
+	s.undo = s.cal.Clone()
+	edit(s.cal)
+	return s.save()
+}
+
+// Undo takes back the last change and saves; a second Undo redoes it. It
+// reports false if there is nothing to undo. If the file changed on disk
+// since the last change, Undo keeps what is there now and returns
+// ErrChangedElsewhere.
+func (s *Store) Undo() (bool, error) {
+	if s.changed() {
+		hadUndo := s.undo != nil
+		if err := s.load(); err != nil {
+			return false, fmt.Errorf("could not reload: %w", err)
+		}
+		if hadUndo {
+			return false, ErrChangedElsewhere
+		}
+	}
+	if s.undo == nil {
+		return false, nil
+	}
+	s.cal, s.undo = s.undo, s.cal
+	return true, s.save()
+}
+
+// load reads the file and forgets the last change, which no longer applies.
+func (s *Store) load() error {
 	data, err := os.ReadFile(s.path)
 	if errors.Is(err, fs.ErrNotExist) {
+		s.cal, s.undo = calendar.New(), nil
 		s.modTime, s.size = time.Time{}, 0
-		return calendar.New(), nil
+		return nil
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 	c := calendar.New()
 	if err := json.Unmarshal(data, c); err != nil {
-		return nil, fmt.Errorf("%s: %w", s.path, err)
+		return fmt.Errorf("%s: %w", s.path, err)
 	}
+	s.cal, s.undo = c, nil
 	s.remember()
-	return c, nil
+	return nil
 }
 
-// Changed reports whether the file was modified by someone else since the
-// last Load or Save.
-func (s *Store) Changed() bool {
+// changed reports whether the file was modified by someone else since it was
+// last read or written.
+func (s *Store) changed() bool {
 	info, err := os.Stat(s.path)
 	if err != nil {
 		return !s.modTime.IsZero()
@@ -68,9 +124,17 @@ func (s *Store) Changed() bool {
 	return !info.ModTime().Equal(s.modTime) || info.Size() != s.size
 }
 
-// Save writes the Calendar atomically: a temp file renamed over the old one.
-func (s *Store) Save(c *calendar.Calendar) error {
-	data, err := json.MarshalIndent(c, "", "  ")
+// save writes the Calendar atomically: a temp file renamed over the old one.
+func (s *Store) save() error {
+	if err := s.write(); err != nil {
+		return fmt.Errorf("could not save: %w", err)
+	}
+	s.remember()
+	return nil
+}
+
+func (s *Store) write() error {
+	data, err := json.MarshalIndent(s.cal, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -90,11 +154,7 @@ func (s *Store) Save(c *calendar.Calendar) error {
 	if err := tmp.Close(); err != nil {
 		return err
 	}
-	if err := os.Rename(tmp.Name(), s.path); err != nil {
-		return err
-	}
-	s.remember()
-	return nil
+	return os.Rename(tmp.Name(), s.path)
 }
 
 func (s *Store) remember() {
