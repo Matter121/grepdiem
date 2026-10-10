@@ -13,6 +13,7 @@ A small terminal calendar with events and tasks.
 - Subtasks in the same line: `Pack s passport, charger, socks`
 - One JSON file, no database, no config
 
+
 ## Install
 
 On Linux and macOS:
@@ -108,6 +109,14 @@ go test ./...
 ```
 
 `GLOSSARY.md` defines the project's terms; `docs/adr/` records design decisions.
+
+
+## Notes.
+This is a fully vibe-coded app with Claude. Made this project so I would learn to develop with AI and also how I want my calendar to work.
+The skills I used in Claude with this project are from Matt Pocock: [Github]([https://github.com/mattpocock/skills)
+
+As before this only saves the events and tasks to a JSON file. I may later add syncing with external calendar apps.
+
 
 ## License
 
