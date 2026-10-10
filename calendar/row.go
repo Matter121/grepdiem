@@ -2,7 +2,6 @@ package calendar
 
 import "fmt"
 
-// RowKind says what a Row stands for.
 type RowKind int
 
 const (

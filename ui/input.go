@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// lineInput is a one-line text field.
 type lineInput struct {
 	runes []rune
 	pos   int

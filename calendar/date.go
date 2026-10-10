@@ -49,7 +49,6 @@ func (d Date) AddMonths(n int) Date {
 	return Date{first.Year(), first.Month(), min(d.Day, last)}
 }
 
-// Monday returns the Monday of d's week.
 func (d Date) Monday() Date {
 	return d.AddDays(-(int(d.Weekday()) + 6) % 7)
 }
@@ -77,7 +76,6 @@ func (d *Date) UnmarshalText(b []byte) error {
 // Clock is a time of day written as "15:04". The empty Clock means "no time".
 type Clock string
 
-// NewClock builds a Clock from an hour and minute.
 func NewClock(hour, minute int) Clock {
 	return Clock(fmt.Sprintf("%02d:%02d", hour, minute))
 }

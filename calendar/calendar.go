@@ -21,7 +21,6 @@ type EventSpec struct {
 	Until    Date
 }
 
-// Recurring reports whether the spec describes a Recurring Event.
 func (s EventSpec) Recurring() bool { return len(s.Weekdays) > 0 }
 
 // Event is something that happens on a date. With Weekdays set it is a
@@ -40,12 +39,10 @@ type Event struct {
 
 func (e Event) Recurring() bool { return len(e.Weekdays) > 0 }
 
-// Spec returns the Quick-add part of the Event.
 func (e Event) Spec() EventSpec {
 	return EventSpec{e.Title, e.Start, e.End, e.Weekdays, e.Until}
 }
 
-// OccursOn reports whether the Event has an Occurrence on d.
 func (e Event) OccursOn(d Date) bool {
 	if !e.Recurring() {
 		return d == e.Date
@@ -95,7 +92,6 @@ func (c *Calendar) newID() int {
 	return id
 }
 
-// Day is what one date looks like.
 type Day struct {
 	Date Date
 	// Rows are the Events, All-day first and then by start time, followed by
@@ -104,7 +100,6 @@ type Day struct {
 	Rows []Row
 }
 
-// WithoutSubtasks returns the Rows that stand for an Event or a Task.
 func (d Day) WithoutSubtasks() []Row {
 	return slices.DeleteFunc(slices.Clone(d.Rows), func(r Row) bool { return r.Kind == SubtaskRow })
 }

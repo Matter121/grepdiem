@@ -86,7 +86,6 @@ func (c *Calendar) Move(r Row, to Date) error {
 	return nil
 }
 
-// CycleColor gives the Event a Row stands for the next Marker colour.
 func (c *Calendar) CycleColor(r Row) {
 	if e := c.event(r.Event.ID); r.Kind == EventRow && e != nil {
 		e.Color = (e.Color + 1) % Colors

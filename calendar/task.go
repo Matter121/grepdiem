@@ -29,7 +29,6 @@ type TaskSpec struct {
 	Subtasks []string
 }
 
-// Spec returns the Quick-add part of the Task.
 func (t Task) Spec() TaskSpec {
 	spec := TaskSpec{Title: t.Title}
 	for _, s := range t.Subtasks {
@@ -143,7 +142,6 @@ func (c *Calendar) subtask(id, sub int) *Subtask {
 	return nil
 }
 
-// AddTask attaches a new Task to date.
 func (c *Calendar) AddTask(date Date, title string, subtasks ...string) Task {
 	t := Task{ID: c.newID(), Title: title, Date: date}
 	for _, s := range subtasks {
@@ -153,7 +151,6 @@ func (c *Calendar) AddTask(date Date, title string, subtasks ...string) Task {
 	return t
 }
 
-// toggleTask ticks an open Task as Done today, or reopens a Done one.
 func (c *Calendar) toggleTask(id int, today Date) {
 	if t := c.task(id); t != nil {
 		if t.Done.IsZero() {
@@ -183,14 +180,12 @@ func (c *Calendar) UpdateTask(id int, title string, subtasks ...string) {
 	}
 }
 
-// toggleSubtask ticks or unticks a Subtask. Its Task stays as it is.
 func (c *Calendar) toggleSubtask(id, sub int) {
 	if s := c.subtask(id, sub); s != nil {
 		s.Done = !s.Done
 	}
 }
 
-// RenameSubtask changes a Subtask's title and keeps its tick.
 func (c *Calendar) RenameSubtask(id, sub int, title string) {
 	if s := c.subtask(id, sub); s != nil {
 		s.Title = title

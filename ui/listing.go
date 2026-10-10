@@ -44,7 +44,6 @@ func (l listing) mark() int {
 	return l.cursor
 }
 
-// step returns where the cursor is after moving by rows up or down.
 func (l listing) step(by int) int {
 	return max(0, min(l.cursor+by, len(l.rows)-1))
 }
