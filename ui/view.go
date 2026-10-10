@@ -325,13 +325,11 @@ func fullRow(r calendar.Row, otherMonth bool, width int) string {
 
 // rowDetail says in full what a Row of the Full view had no room for.
 func (m *Model) rowDetail(r calendar.Row) string {
-	switch {
-	case r.Kind == calendar.EventRow:
+	if r.Kind == calendar.EventRow {
 		return calendar.Describe(r.Event.Spec(), m.selected)
-	case r.State == calendar.Done:
-		return r.Title() + " · done"
-	case r.State == calendar.Overdue:
-		return r.Title() + " · overdue " + r.Note()
+	}
+	if note := r.Note(); note != "" {
+		return r.Title() + " · " + note
 	}
 	return r.Title()
 }

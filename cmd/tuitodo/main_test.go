@@ -33,7 +33,7 @@ Events
   13:00–15:00  Lecture
 
 Todos
-  [ ] Call landlord (from Tue 6 Oct)
+  [ ] Call landlord (overdue from Tue 6 Oct)
   [ ] Buy milk
   [x] Water plants
 `

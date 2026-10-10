@@ -48,10 +48,11 @@ func (r Row) Mark() string {
 	return "[ ]"
 }
 
-// Note says where an Overdue Todo comes from. It is empty for any other Row.
+// Note says that a Todo is Overdue and from which date. It is empty for any
+// other Row.
 func (r Row) Note() string {
 	if r.State != Overdue {
 		return ""
 	}
-	return "from " + r.Todo.Date.Format("Mon 2 Jan")
+	return "overdue from " + r.Todo.Date.Format("Mon 2 Jan")
 }

@@ -172,8 +172,8 @@ func TestFullViewActsOnTheItemUnderTheCursor(t *testing.T) {
 	if done := m.store.Calendar().Todos[0].Done; done != calendar.DateOf(now) {
 		t.Errorf("todo done on %v, want today", done)
 	}
-	if view := ansi.Strip(m.View()); !strings.Contains(view, "Buy milk · done") {
-		t.Errorf("bottom line lacks the todo's state:\n%s", view)
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "[x] Buy milk") || strings.Contains(view, "· done") {
+		t.Errorf("want the todo ticked, and its tick box alone to say so:\n%s", view)
 	}
 }
 
@@ -243,7 +243,7 @@ func TestOverdueAndDoneTodosShowInBothViews(t *testing.T) {
 	press(m, "enter", "j", " ", "esc")
 
 	compact := ansi.Strip(m.View())
-	for _, want := range []string{"[ ] Rent  from Tue 6 Oct", "[x] Plants"} {
+	for _, want := range []string{"[ ] Rent  overdue from Tue 6 Oct", "[x] Plants"} {
 		if !strings.Contains(compact, want) {
 			t.Errorf("compact view lacks %q:\n%s", want, compact)
 		}

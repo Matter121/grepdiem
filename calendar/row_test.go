@@ -26,7 +26,7 @@ func TestDayListsEventRowsThenTodoRowsWithTheirStateAndText(t *testing.T) {
 		{EventRow, Open, "Birthday", "", "", ""},
 		{EventRow, Open, "Gym", "07:30", "", ""},
 		{EventRow, Open, "Lecture", "13:00–15:00", "", ""},
-		{TodoRow, Overdue, "Call landlord", "", "[ ]", "from Tue 6 Oct"},
+		{TodoRow, Overdue, "Call landlord", "", "[ ]", "overdue from Tue 6 Oct"},
 		{TodoRow, Open, "Buy milk", "", "[ ]", ""},
 		{TodoRow, Done, "Water plants", "", "[x]", ""},
 	}
