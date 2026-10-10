@@ -75,23 +75,28 @@ func (c *Calendar) newID() int {
 
 // Day is what one date looks like.
 type Day struct {
-	Date   Date
-	Events []Event // All-day first, then by start time
-	Todos  []DayTodo
+	Date Date
+	// Rows are the Events, All-day first and then by start time, followed by
+	// the Todos: Overdue, then open, then Done.
+	Rows []Row
 }
 
 // Day returns what is on d, given which date is today.
 func (c *Calendar) Day(d, today Date) Day {
-	day := Day{Date: d}
+	var events []Event
 	for _, e := range c.Events {
 		if e.OccursOn(d) {
-			day.Events = append(day.Events, e)
+			events = append(events, e)
 		}
 	}
-	sort.SliceStable(day.Events, func(i, j int) bool {
-		return day.Events[i].Start < day.Events[j].Start
+	sort.SliceStable(events, func(i, j int) bool {
+		return events[i].Start < events[j].Start
 	})
-	day.Todos = c.todosOn(d, today)
+	day := Day{Date: d}
+	for _, e := range events {
+		day.Rows = append(day.Rows, Row{Kind: EventRow, Event: e})
+	}
+	day.Rows = append(day.Rows, c.todoRows(d, today)...)
 	return day
 }
 

@@ -106,7 +106,7 @@ func (m *Model) gridView(today calendar.Date) string {
 			date := monday.AddDays(i)
 			day := m.store.Calendar().Day(date, today)
 			numbers += " " + m.dayNumber(day, today) + " "
-			markers += "  " + markerRow(day.Events)
+			markers += "  " + markerRow(day.Rows)
 		}
 		b.WriteString("\n" + numbers + "\n" + markers)
 	}
@@ -119,8 +119,8 @@ func (m *Model) dayNumber(day calendar.Day, today calendar.Date) string {
 	style := m.dayStyle(day.Date, today)
 	digits := strconv.Itoa(day.Date.Day)
 	open := false
-	for _, t := range day.Todos {
-		open = open || t.Done.IsZero()
+	for _, r := range day.Rows {
+		open = open || (r.Kind == calendar.TodoRow && r.State != calendar.Done)
 	}
 	return style.Render(strings.Repeat(" ", 3-len(digits))) +
 		style.Underline(open).Render(digits) + style.Render(" ")
@@ -261,7 +261,7 @@ func junction(up, down, left, right bool) string {
 // most width wide. A day with more than fits ends in "+2 more", and the
 // day the cursor is in scrolls to keep the cursor's row in sight.
 func (m *Model) dayBox(date, today calendar.Date, width, rows int) []string {
-	items := dayItems(m.store.Calendar().Day(date, today))
+	list := m.store.Calendar().Day(date, today).Rows
 	otherMonth := date.Month != m.selected.Month
 	cursor := -1
 	if date == m.selected && m.focus == focusPanel {
@@ -269,22 +269,22 @@ func (m *Model) dayBox(date, today calendar.Date, width, rows int) []string {
 	}
 
 	lines := make([]string, 0, rows)
-	shown, top := len(items), 0
-	if len(items) > rows {
+	shown, top := len(list), 0
+	if len(list) > rows {
 		shown = rows - 1
 		if shown == 0 && cursor >= 0 {
 			shown = 1 // no room for both: the cursor's row matters more than the count
 		}
-		top = max(0, min(cursor-shown+1, len(items)-shown))
+		top = max(0, min(cursor-shown+1, len(list)-shown))
 	}
 	for i := top; i < top+shown; i++ {
-		line := fullRow(items[i], otherMonth, width)
+		line := fullRow(list[i], otherMonth, width)
 		if i == cursor {
 			line = lipgloss.NewStyle().Foreground(accent).Bold(true).Render("›") + line
 		}
 		lines = append(lines, ansi.Truncate(line, width, "…"))
 	}
-	if hidden := len(items) - shown; hidden > 0 && len(lines) < rows {
+	if hidden := len(list) - shown; hidden > 0 && len(lines) < rows {
 		more := fmt.Sprintf("+%d more", hidden)
 		if shown == 0 {
 			more = fmt.Sprintf("%d items", hidden)
@@ -297,56 +297,59 @@ func (m *Model) dayBox(date, today calendar.Date, width, rows int) []string {
 	return lines
 }
 
-// fullRow draws an Event or Todo as it appears in a day of the Full view. An
-// Event's start time goes faintly before its title, unless in a day only
-// width wide that would leave too little of the title to read.
-func fullRow(it item, otherMonth bool, width int) string {
+// fullRow draws a Row as it appears in a day of the Full view. An Event's
+// start time goes faintly before its title, unless in a day only width wide
+// that would leave too little of the title to read.
+func fullRow(r calendar.Row, otherMonth bool, width int) string {
 	clock := ""
-	if !it.isTodo && it.event.Start != "" {
-		clock = calendar.ShortClock(it.event.Start) + " "
-		if width-2-len(clock) < min(lipgloss.Width(it.event.Title), minTitle) {
+	if r.Kind == calendar.EventRow && r.Event.Start != "" {
+		clock = calendar.ShortClock(r.Event.Start) + " "
+		if width-2-len(clock) < min(lipgloss.Width(r.Title()), minTitle) {
 			clock = ""
 		}
 	}
 	switch {
-	case !it.isTodo && otherMonth:
-		return faint.Render("● " + clock + it.event.Title)
-	case !it.isTodo:
-		return marker(it.event) + " " + faint.Render(clock) + it.event.Title
-	case !it.todo.Done.IsZero():
-		return faint.Render("[x] ") + doneText.Render(it.todo.Title)
-	case it.todo.Overdue:
-		return overdue.Render("[ ] " + it.todo.Title)
+	case r.Kind == calendar.EventRow && otherMonth:
+		return faint.Render("● " + clock + r.Title())
+	case r.Kind == calendar.EventRow:
+		return marker(r.Event) + " " + faint.Render(clock) + r.Title()
+	case r.State == calendar.Done:
+		return faint.Render(r.Mark()+" ") + doneText.Render(r.Title())
+	case r.State == calendar.Overdue:
+		return overdue.Render(r.Mark() + " " + r.Title())
 	case otherMonth:
-		return faint.Render("[ ] " + it.todo.Title)
+		return faint.Render(r.Mark() + " " + r.Title())
 	}
-	return "[ ] " + it.todo.Title
+	return r.Mark() + " " + r.Title()
 }
 
-// itemDetail says in full what a row of the Full view had no room for.
-func (m *Model) itemDetail(it item) string {
+// rowDetail says in full what a Row of the Full view had no room for.
+func (m *Model) rowDetail(r calendar.Row) string {
 	switch {
-	case !it.isTodo:
-		return calendar.Describe(it.event.Spec(), m.selected)
-	case !it.todo.Done.IsZero():
-		return it.todo.Title + " · done"
-	case it.todo.Overdue:
-		return it.todo.Title + " · overdue from " + it.todo.Date.Format("Mon 2 Jan")
+	case r.Kind == calendar.EventRow:
+		return calendar.Describe(r.Event.Spec(), m.selected)
+	case r.State == calendar.Done:
+		return r.Title() + " · done"
+	case r.State == calendar.Overdue:
+		return r.Title() + " · overdue " + r.Note()
 	}
-	return it.todo.Title
+	return r.Title()
 }
 
 // markerRow draws up to three Markers and a "+" if there are more Events.
-func markerRow(events []calendar.Event) string {
+func markerRow(rows []calendar.Row) string {
 	var b strings.Builder
 	width := 0
-	for i, e := range events {
-		if i == 3 {
+	for _, r := range rows {
+		if r.Kind != calendar.EventRow {
+			continue
+		}
+		if width == 3 {
 			b.WriteString(faint.Render("+"))
 			width++
 			break
 		}
-		b.WriteString(marker(e))
+		b.WriteString(marker(r.Event))
 		width++
 	}
 	return b.String() + strings.Repeat(" ", 4-width)
@@ -357,7 +360,7 @@ func marker(e calendar.Event) string {
 }
 
 func (m *Model) panelView(today calendar.Date, width, height int) string {
-	day := m.store.Calendar().Day(m.selected, today)
+	rows := m.store.Calendar().Day(m.selected, today).Rows
 	_, week := m.selected.ISOWeek()
 	sub := fmt.Sprintf("week %d", week)
 	if m.selected == today {
@@ -365,48 +368,42 @@ func (m *Model) panelView(today calendar.Date, width, height int) string {
 	}
 	lines := []string{heading.Render(m.selected.Format("Mon 2 Jan 2006")), faint.Render(sub), ""}
 
-	if len(day.Events) == 0 && len(day.Todos) == 0 {
+	if len(rows) == 0 {
 		lines = append(lines, faint.Render("Nothing here."), faint.Render("a adds an event, o adds a todo."))
 	}
 
 	timeWidth := 0
-	for _, e := range day.Events {
-		timeWidth = max(timeWidth, lipgloss.Width(calendar.TimeRange(e.Start, e.End)))
+	for _, r := range rows {
+		timeWidth = max(timeWidth, lipgloss.Width(r.Time()))
 	}
 
-	cursorLine, index := 0, 0
-	pointer := func() string {
-		defer func() { index++ }()
-		if m.focus == focusPanel && index == m.cursor {
+	cursorLine := 0
+	for i, r := range rows {
+		if i > 0 && r.Kind != rows[i-1].Kind {
+			lines = append(lines, "")
+		}
+		line := "  "
+		if m.focus == focusPanel && i == m.cursor {
 			cursorLine = len(lines)
-			return lipgloss.NewStyle().Foreground(accent).Bold(true).Render("› ")
+			line = lipgloss.NewStyle().Foreground(accent).Bold(true).Render("› ")
 		}
-		return "  "
-	}
-
-	for _, e := range day.Events {
-		line := pointer() + marker(e) + " "
-		if timeWidth > 0 {
-			line += fmt.Sprintf("%-*s ", timeWidth, calendar.TimeRange(e.Start, e.End))
-		}
-		line += e.Title
-		if e.Recurring() {
-			line += faint.Render(" ↻")
-		}
-		lines = append(lines, line)
-	}
-	if len(day.Events) > 0 && len(day.Todos) > 0 {
-		lines = append(lines, "")
-	}
-	for _, t := range day.Todos {
-		line := pointer()
 		switch {
-		case !t.Done.IsZero():
-			line += faint.Render("[x] ") + doneText.Render(t.Title)
-		case t.Overdue:
-			line += "[ ] " + t.Title + overdue.Render("  from "+t.Date.Format("Mon 2 Jan"))
+		case r.Kind == calendar.EventRow:
+			line += marker(r.Event) + " "
+			if timeWidth > 0 {
+				line += fmt.Sprintf("%-*s ", timeWidth, r.Time())
+			}
+			line += r.Title()
+			if r.Event.Recurring() {
+				line += faint.Render(" ↻")
+			}
+		case r.State == calendar.Done:
+			line += faint.Render(r.Mark()+" ") + doneText.Render(r.Title())
 		default:
-			line += "[ ] " + t.Title
+			line += r.Mark() + " " + r.Title()
+			if note := r.Note(); note != "" {
+				line += overdue.Render("  " + note)
+			}
 		}
 		lines = append(lines, line)
 	}
@@ -435,18 +432,18 @@ func (m *Model) bottomView() string {
 		first = prompt + m.input.view(m.width-lipgloss.Width(prompt)-1)
 		second = m.inputHint()
 	case modeDeleteChoice:
-		first = fmt.Sprintf("Delete “%s”:  t this occurrence   a all occurrences   esc cancel", m.target.title())
+		first = fmt.Sprintf("Delete “%s”:  t this occurrence   a all occurrences   esc cancel", m.target.Title())
 	case modeConfirm:
 		first = m.question + "  y yes   any other key no"
 	case modeMove:
-		first = fmt.Sprintf("Moving “%s”: pick a day", m.target.title())
+		first = fmt.Sprintf("Moving “%s”: pick a day", m.target.Title())
 		second = "←↓↑→ day · H/L month · K/J year · t today · enter drop here · esc cancel"
 	default:
 		switch {
 		case m.focus == focusPanel:
 			second = "space tick · e edit · d delete · m move · esc back · ? help · j/k select · > next day · c colour"
-			if items := m.items(); m.full && first == "" && m.cursor < len(items) {
-				first = m.itemDetail(items[m.cursor])
+			if rows := m.rows(); m.full && first == "" && m.cursor < len(rows) {
+				first = m.rowDetail(rows[m.cursor])
 			}
 		case m.full:
 			second = "a event · o todo · enter open day · v compact view · ? help · q quit · ←↓↑→ day · t today · g go to · H/L month · K/J year · u undo"

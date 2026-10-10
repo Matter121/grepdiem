@@ -3,6 +3,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"runtime/debug"
 	"time"
@@ -59,7 +60,7 @@ func run(args []string) error {
 		return err
 	}
 	if command == "today" {
-		printToday(st.Calendar(), calendar.DateOf(time.Now()))
+		printToday(os.Stdout, st.Calendar(), calendar.DateOf(time.Now()))
 		return nil
 	}
 	_, err = tea.NewProgram(ui.New(st, time.Now), tea.WithAltScreen()).Run()
@@ -76,35 +77,34 @@ func buildVersion() string {
 	return "dev"
 }
 
-func printToday(cal *calendar.Calendar, today calendar.Date) {
-	day := cal.Day(today, today)
+func printToday(w io.Writer, cal *calendar.Calendar, today calendar.Date) {
+	rows := cal.Day(today, today).Rows
 	_, week := today.ISOWeek()
-	fmt.Printf("%s · week %d\n", today.Format("Mon 2 Jan 2006"), week)
-	if len(day.Events) == 0 && len(day.Todos) == 0 {
-		fmt.Println("\nNothing today.")
+	fmt.Fprintf(w, "%s · week %d\n", today.Format("Mon 2 Jan 2006"), week)
+	if len(rows) == 0 {
+		fmt.Fprintln(w, "\nNothing today.")
 		return
 	}
-	if len(day.Events) > 0 {
-		fmt.Println("\nEvents")
-		for _, e := range day.Events {
-			when := "all day"
-			if e.Start != "" {
-				when = calendar.TimeRange(e.Start, e.End)
-			}
-			fmt.Printf("  %-11s  %s\n", when, e.Title)
-		}
-	}
-	if len(day.Todos) > 0 {
-		fmt.Println("\nTodos")
-		for _, t := range day.Todos {
-			switch {
-			case !t.Done.IsZero():
-				fmt.Printf("  [x] %s\n", t.Title)
-			case t.Overdue:
-				fmt.Printf("  [ ] %s (from %s)\n", t.Title, t.Date.Format("Mon 2 Jan"))
-			default:
-				fmt.Printf("  [ ] %s\n", t.Title)
+	for i, r := range rows {
+		if i == 0 || r.Kind != rows[i-1].Kind {
+			if r.Kind == calendar.EventRow {
+				fmt.Fprintln(w, "\nEvents")
+			} else {
+				fmt.Fprintln(w, "\nTodos")
 			}
 		}
+		if r.Kind == calendar.EventRow {
+			when := r.Time()
+			if when == "" {
+				when = "all day"
+			}
+			fmt.Fprintf(w, "  %-11s  %s\n", when, r.Title())
+			continue
+		}
+		line := "  " + r.Mark() + " " + r.Title()
+		if note := r.Note(); note != "" {
+			line += " (" + note + ")"
+		}
+		fmt.Fprintln(w, line)
 	}
 }

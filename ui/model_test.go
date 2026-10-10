@@ -42,8 +42,8 @@ func press(m *Model, keys ...string) {
 
 func titles(m *Model) []string {
 	var titles []string
-	for _, it := range m.items() {
-		titles = append(titles, it.title())
+	for _, r := range m.rows() {
+		titles = append(titles, r.Title())
 	}
 	return titles
 }
@@ -217,5 +217,47 @@ func TestShiftedKeysJumpMonthsAndYears(t *testing.T) {
 		if m.selected != step.want {
 			t.Fatalf("after %q: selected %v, want %v", step.key.String(), m.selected, step.want)
 		}
+	}
+}
+
+func TestCompactViewCursorMarksTheRowAKeyActsOn(t *testing.T) {
+	m, _ := newModel(t)
+	resize(m, 120, 40)
+	press(m, "a", "Dentist 10:30", "enter", "o", "Buy milk", "enter", "o", "Post letter", "enter")
+
+	press(m, "enter", "j")
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "› [ ] Buy milk") {
+		t.Fatalf("want the cursor on Buy milk:\n%s", view)
+	}
+	press(m, " ")
+	view := ansi.Strip(m.View())
+	if !strings.Contains(view, "[x] Buy milk") || !strings.Contains(view, "[ ] Post letter") {
+		t.Errorf("want only Buy milk ticked:\n%s", view)
+	}
+}
+
+func TestOverdueAndDoneTodosShowInBothViews(t *testing.T) {
+	m, _ := newModel(t)
+	resize(m, 120, 40)
+	press(m, "h", "o", "Rent", "enter", "l", "o", "Plants", "enter")
+	press(m, "enter", "j", " ", "esc")
+
+	compact := ansi.Strip(m.View())
+	for _, want := range []string{"[ ] Rent  from Tue 6 Oct", "[x] Plants"} {
+		if !strings.Contains(compact, want) {
+			t.Errorf("compact view lacks %q:\n%s", want, compact)
+		}
+	}
+
+	press(m, "v")
+	full := ansi.Strip(m.View())
+	for _, want := range []string{"[ ] Rent", "[x] Plants"} {
+		if !strings.Contains(full, want) {
+			t.Errorf("full view lacks %q:\n%s", want, full)
+		}
+	}
+	press(m, "enter", "k")
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "Rent · overdue from Tue 6 Oct") {
+		t.Errorf("bottom line lacks where the overdue todo comes from:\n%s", view)
 	}
 }

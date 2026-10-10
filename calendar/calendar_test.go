@@ -15,8 +15,10 @@ func d(s string) Date {
 
 func titles(day Day) []string {
 	var out []string
-	for _, e := range day.Events {
-		out = append(out, e.Title)
+	for _, r := range day.Rows {
+		if r.Kind == EventRow {
+			out = append(out, r.Title())
+		}
 	}
 	return out
 }
@@ -73,7 +75,7 @@ func TestRecurringEventOccurrences(t *testing.T) {
 		{"2026-12-15", false, "Tuesday after the end"},
 	}
 	for _, tc := range cases {
-		got := len(c.Day(d(tc.date), today).Events) == 1
+		got := len(c.Day(d(tc.date), today).Rows) == 1
 		if got != tc.want {
 			t.Errorf("%s (%s): occurs = %v, want %v", tc.date, tc.why, got, tc.want)
 		}

@@ -13,29 +13,23 @@ type Todo struct {
 	Done  Date   `json:"done,omitzero"` // the day it was ticked
 }
 
-// DayTodo is a Todo as it appears on a particular day.
-type DayTodo struct {
-	Todo
-	Overdue bool
-}
-
-// todosOn lists Overdue Todos first, then open ones, then Done ones.
-func (c *Calendar) todosOn(d, today Date) []DayTodo {
-	var overdue, open, done []DayTodo
+// todoRows lists Overdue Todos first, then open ones, then Done ones.
+func (c *Calendar) todoRows(d, today Date) []Row {
+	var overdue, open, done []Row
 	for _, t := range c.Todos {
 		switch {
 		case !t.Done.IsZero():
 			if t.Done == d {
-				done = append(done, DayTodo{Todo: t})
+				done = append(done, Row{Kind: TodoRow, Todo: t, State: Done})
 			}
 		case d == today && t.Date.Before(today):
-			overdue = append(overdue, DayTodo{Todo: t, Overdue: true})
+			overdue = append(overdue, Row{Kind: TodoRow, Todo: t, State: Overdue})
 		case t.Date == d && !d.Before(today):
-			open = append(open, DayTodo{Todo: t})
+			open = append(open, Row{Kind: TodoRow, Todo: t})
 		}
 	}
 	sort.SliceStable(overdue, func(i, j int) bool {
-		return overdue[i].Date.Before(overdue[j].Date)
+		return overdue[i].Todo.Date.Before(overdue[j].Todo.Date)
 	})
 	return append(append(overdue, open...), done...)
 }

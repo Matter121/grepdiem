@@ -35,6 +35,10 @@ _Avoid_: Late, rolled over
 The state of a Todo that has been ticked; it is shown on the day it was ticked, not the day it was attached to.
 _Avoid_: Completed, finished, checked
 
+**Row**:
+One line in a day's listing, standing for one Event or one Todo.
+_Avoid_: Item, entry, line
+
 **Quick-add**:
 The single line of text from which an Event or Todo is created.
 _Avoid_: Command, prompt, form

@@ -36,7 +36,7 @@ func TestCalendarSurvivesJSONAndReadsNaturally(t *testing.T) {
 	today := d("2026-10-09")
 	for _, date := range []string{"2026-10-08", "2026-10-09", "2026-10-13", "2026-10-15"} {
 		a, b := c.Day(d(date), today), back.Day(d(date), today)
-		if len(a.Events) != len(b.Events) || !sameShown(todosShown(a), todosShown(b)) {
+		if len(a.Rows) != len(b.Rows) || !sameShown(todosShown(a), todosShown(b)) {
 			t.Errorf("%s differs after JSON: %+v vs %+v", date, a, b)
 		}
 	}

@@ -40,20 +40,6 @@ const (
 	inputGoto
 )
 
-// item is one row of the day panel: an Event or a Todo.
-type item struct {
-	isTodo bool
-	event  calendar.Event
-	todo   calendar.DayTodo
-}
-
-func (it item) title() string {
-	if it.isTodo {
-		return it.todo.Title
-	}
-	return it.event.Title
-}
-
 type Model struct {
 	store *store.Store
 	now   func() time.Time
@@ -61,12 +47,12 @@ type Model struct {
 	selected calendar.Date
 	full     bool // Full view rather than Compact view
 	focus    focus
-	cursor   int // index into the day panel's items
+	cursor   int // index into the selected day's Rows
 
 	mode      mode
 	input     lineInput
 	inputKind inputKind
-	target    item          // what is being edited, deleted or moved
+	target    calendar.Row  // what is being edited, deleted or moved
 	moveFrom  calendar.Date // where to return if a move is cancelled
 	question  string        // modeConfirm
 	onYes     func()
@@ -94,20 +80,8 @@ func (m *Model) Init() tea.Cmd { return tick() }
 
 func (m *Model) today() calendar.Date { return calendar.DateOf(m.now()) }
 
-func (m *Model) items() []item {
-	return dayItems(m.store.Calendar().Day(m.selected, m.today()))
-}
-
-// dayItems lists a day's rows in the order they are shown: Events, then Todos.
-func dayItems(day calendar.Day) []item {
-	var items []item
-	for _, e := range day.Events {
-		items = append(items, item{event: e})
-	}
-	for _, t := range day.Todos {
-		items = append(items, item{isTodo: true, todo: t})
-	}
-	return items
+func (m *Model) rows() []calendar.Row {
+	return m.store.Calendar().Day(m.selected, m.today()).Rows
 }
 
 // change applies an edit and saves it. If that fails it says why in the
@@ -131,9 +105,9 @@ func (m *Model) selectDay(d calendar.Date) {
 	m.cursor = 0
 }
 
-// settle keeps the cursor and focus valid after the day's items change.
+// settle keeps the cursor and focus valid after the day's Rows change.
 func (m *Model) settle() {
-	n := len(m.items())
+	n := len(m.rows())
 	m.cursor = max(0, min(m.cursor, n-1))
 	if n == 0 && m.mode != modeMove {
 		m.focus = focusGrid
@@ -240,13 +214,13 @@ func (m *Model) updateNormal(msg tea.KeyMsg) tea.Cmd {
 	case "v":
 		m.toggleView()
 	case "tab":
-		if m.focus == focusGrid && len(m.items()) > 0 {
+		if m.focus == focusGrid && len(m.rows()) > 0 {
 			m.focus = focusPanel
 		} else {
 			m.focus = focusGrid
 		}
 	case "enter":
-		if len(m.items()) > 0 {
+		if len(m.rows()) > 0 {
 			m.focus = focusPanel
 		}
 	case "esc":
@@ -256,41 +230,41 @@ func (m *Model) updateNormal(msg tea.KeyMsg) tea.Cmd {
 	if m.focus != focusPanel {
 		return nil
 	}
-	items := m.items()
-	if m.cursor >= len(items) {
+	rows := m.rows()
+	if m.cursor >= len(rows) {
 		return nil
 	}
-	it := items[m.cursor]
+	it := rows[m.cursor]
 	switch key {
 	case "up", "k":
 		m.cursor = max(m.cursor-1, 0)
 	case "down", "j":
-		m.cursor = min(m.cursor+1, len(items)-1)
+		m.cursor = min(m.cursor+1, len(rows)-1)
 	case " ":
-		if it.isTodo {
+		if it.Kind == calendar.TodoRow {
 			today := m.today()
-			m.change(func(c *calendar.Calendar) { c.ToggleTodo(it.todo.ID, today) })
+			m.change(func(c *calendar.Calendar) { c.ToggleTodo(it.Todo.ID, today) })
 		}
 	case "e":
 		m.target = it
-		if it.isTodo {
-			m.openInput(inputEditTodo, it.todo.Title)
+		if it.Kind == calendar.TodoRow {
+			m.openInput(inputEditTodo, it.Todo.Title)
 		} else {
-			m.openInput(inputEditEvent, calendar.Line(it.event.Spec()))
+			m.openInput(inputEditEvent, calendar.Line(it.Event.Spec()))
 		}
 	case "d":
 		m.delete(it)
 	case "c":
-		if !it.isTodo {
-			m.change(func(c *calendar.Calendar) { c.CycleColor(it.event.ID) })
+		if it.Kind == calendar.EventRow {
+			m.change(func(c *calendar.Calendar) { c.CycleColor(it.Event.ID) })
 		}
 	case "m":
 		m.startMove(it)
 	case ">":
-		if m.movable(it) && it.isTodo {
+		if m.movable(it) && it.Kind == calendar.TodoRow {
 			next := m.selected.AddDays(1)
-			if m.change(func(c *calendar.Calendar) { c.MoveTodo(it.todo.ID, next) }) {
-				m.status = fmt.Sprintf("Moved “%s” to %s", it.title(), next.Format("Mon 2 Jan"))
+			if m.change(func(c *calendar.Calendar) { c.MoveTodo(it.Todo.ID, next) }) {
+				m.status = fmt.Sprintf("Moved “%s” to %s", it.Title(), next.Format("Mon 2 Jan"))
 			}
 		}
 	}
@@ -347,7 +321,7 @@ func (m *Model) submit() {
 		day := m.selected
 		m.change(func(c *calendar.Calendar) { c.AddTodo(day, text) })
 	case inputEditTodo:
-		id := m.target.todo.ID
+		id := m.target.Todo.ID
 		m.change(func(c *calendar.Calendar) { c.RenameTodo(id, text) })
 	case inputGoto:
 		d, ok := calendar.ParseGoto(text, m.selected)
@@ -373,7 +347,7 @@ func (m *Model) submit() {
 			m.status = "An event needs a title"
 			return
 		}
-		old := m.target.event
+		old := m.target.Event
 		update := func() { m.change(func(c *calendar.Calendar) { c.UpdateEvent(old.ID, spec) }) }
 		if old.Recurring() && !spec.Recurring() {
 			m.ask(fmt.Sprintf("Keep only %s and drop every other occurrence of “%s”?",
@@ -405,21 +379,21 @@ func (m *Model) ask(question string, onYes func()) {
 	m.mode, m.question, m.onYes = modeConfirm, question, onYes
 }
 
-func (m *Model) delete(it item) {
+func (m *Model) delete(it calendar.Row) {
 	switch {
-	case it.isTodo:
-		m.change(func(c *calendar.Calendar) { c.DeleteTodo(it.todo.ID) })
-	case it.event.Recurring():
+	case it.Kind == calendar.TodoRow:
+		m.change(func(c *calendar.Calendar) { c.DeleteTodo(it.Todo.ID) })
+	case it.Event.Recurring():
 		m.target = it
 		m.mode = modeDeleteChoice
 	default:
-		m.change(func(c *calendar.Calendar) { c.DeleteEvent(it.event.ID) })
+		m.change(func(c *calendar.Calendar) { c.DeleteEvent(it.Event.ID) })
 	}
 }
 
 func (m *Model) updateDeleteChoice(msg tea.KeyMsg) {
 	m.mode = modeNormal
-	e, day := m.target.event, m.selected
+	e, day := m.target.Event, m.selected
 	switch msg.String() {
 	case "t":
 		if m.change(func(c *calendar.Calendar) { c.Skip(e.ID, day) }) {
@@ -432,11 +406,11 @@ func (m *Model) updateDeleteChoice(msg tea.KeyMsg) {
 	}
 }
 
-func (m *Model) movable(it item) bool {
+func (m *Model) movable(it calendar.Row) bool {
 	switch {
-	case !it.isTodo && it.event.Recurring():
+	case it.Kind == calendar.EventRow && it.Event.Recurring():
 		m.status = "A recurring event can't be moved; edit its weekdays with e"
-	case it.isTodo && !it.todo.Done.IsZero():
+	case it.State == calendar.Done:
 		m.status = "A done todo can't be moved"
 	default:
 		return true
@@ -444,7 +418,7 @@ func (m *Model) movable(it item) bool {
 	return false
 }
 
-func (m *Model) startMove(it item) {
+func (m *Model) startMove(it calendar.Row) {
 	if !m.movable(it) {
 		return
 	}
@@ -461,15 +435,15 @@ func (m *Model) updateMove(msg tea.KeyMsg) {
 	case "enter":
 		it, day := m.target, m.selected
 		moved := m.change(func(c *calendar.Calendar) {
-			if it.isTodo {
-				c.MoveTodo(it.todo.ID, day)
+			if it.Kind == calendar.TodoRow {
+				c.MoveTodo(it.Todo.ID, day)
 			} else {
-				c.MoveEvent(it.event.ID, day)
+				c.MoveEvent(it.Event.ID, day)
 			}
 		})
 		m.mode = modeNormal
 		if moved {
-			m.status = fmt.Sprintf("Moved “%s” to %s", it.title(), day.Format("Mon 2 Jan"))
+			m.status = fmt.Sprintf("Moved “%s” to %s", it.Title(), day.Format("Mon 2 Jan"))
 		}
 	case "esc", "q":
 		m.mode = modeNormal

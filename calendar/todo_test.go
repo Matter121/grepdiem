@@ -3,15 +3,16 @@ package calendar
 import "testing"
 
 type shown struct {
-	title   string
-	overdue bool
-	done    bool
+	title string
+	state TodoState
 }
 
 func todosShown(day Day) []shown {
 	var out []shown
-	for _, t := range day.Todos {
-		out = append(out, shown{t.Title, t.Overdue, !t.Done.IsZero()})
+	for _, r := range day.Rows {
+		if r.Kind == TodoRow {
+			out = append(out, shown{r.Title(), r.State})
+		}
 	}
 	return out
 }
@@ -34,10 +35,10 @@ func TestTodoShowsOnItsDate(t *testing.T) {
 	c.AddTodo(today, "Buy milk")
 	c.AddTodo(d("2026-10-12"), "Hand in essay")
 
-	if got := todosShown(c.Day(today, today)); !sameShown(got, []shown{{"Buy milk", false, false}}) {
+	if got := todosShown(c.Day(today, today)); !sameShown(got, []shown{{"Buy milk", Open}}) {
 		t.Errorf("today: %v", got)
 	}
-	if got := todosShown(c.Day(d("2026-10-12"), today)); !sameShown(got, []shown{{"Hand in essay", false, false}}) {
+	if got := todosShown(c.Day(d("2026-10-12"), today)); !sameShown(got, []shown{{"Hand in essay", Open}}) {
 		t.Errorf("future day: %v", got)
 	}
 }
@@ -48,7 +49,7 @@ func TestUnfinishedTodoRollsOverToTodayAsOverdue(t *testing.T) {
 	c.AddTodo(d("2026-10-09"), "Buy milk")
 	today := d("2026-10-09")
 
-	want := []shown{{"Call landlord", true, false}, {"Buy milk", false, false}}
+	want := []shown{{"Call landlord", Overdue}, {"Buy milk", Open}}
 	if got := todosShown(c.Day(today, today)); !sameShown(got, want) {
 		t.Errorf("today: got %v, want %v", got, want)
 	}
@@ -63,12 +64,12 @@ func TestTickedOverdueTodoIsDoneOnTheDayItWasTicked(t *testing.T) {
 	today := d("2026-10-09")
 	c.ToggleTodo(todo.ID, today)
 
-	if got := todosShown(c.Day(today, today)); !sameShown(got, []shown{{"Call landlord", false, true}}) {
+	if got := todosShown(c.Day(today, today)); !sameShown(got, []shown{{"Call landlord", Done}}) {
 		t.Errorf("day ticked: %v", got)
 	}
 	// Still visible there the next day, and not Overdue again.
 	tomorrow := d("2026-10-10")
-	if got := todosShown(c.Day(today, tomorrow)); !sameShown(got, []shown{{"Call landlord", false, true}}) {
+	if got := todosShown(c.Day(today, tomorrow)); !sameShown(got, []shown{{"Call landlord", Done}}) {
 		t.Errorf("day ticked, seen tomorrow: %v", got)
 	}
 	if got := todosShown(c.Day(tomorrow, tomorrow)); len(got) != 0 {
@@ -82,7 +83,7 @@ func TestUntickingMakesATodoOpenAgain(t *testing.T) {
 	todo := c.AddTodo(today, "Buy milk")
 	c.ToggleTodo(todo.ID, today)
 	c.ToggleTodo(todo.ID, today)
-	if got := todosShown(c.Day(today, today)); !sameShown(got, []shown{{"Buy milk", false, false}}) {
+	if got := todosShown(c.Day(today, today)); !sameShown(got, []shown{{"Buy milk", Open}}) {
 		t.Errorf("got %v", got)
 	}
 }
@@ -94,7 +95,7 @@ func TestOpenTodosComeBeforeDoneOnes(t *testing.T) {
 	c.AddTodo(today, "Second")
 	c.ToggleTodo(first.ID, today)
 
-	want := []shown{{"Second", false, false}, {"First", false, true}}
+	want := []shown{{"Second", Open}, {"First", Done}}
 	if got := todosShown(c.Day(today, today)); !sameShown(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}
@@ -109,7 +110,7 @@ func TestMovedOverdueTodoIsAnOrdinaryTodoOnItsNewDay(t *testing.T) {
 	if got := todosShown(c.Day(today, today)); len(got) != 0 {
 		t.Errorf("today: %v", got)
 	}
-	if got := todosShown(c.Day(d("2026-10-16"), today)); !sameShown(got, []shown{{"Call landlord", false, false}}) {
+	if got := todosShown(c.Day(d("2026-10-16"), today)); !sameShown(got, []shown{{"Call landlord", Open}}) {
 		t.Errorf("new day: %v", got)
 	}
 }
