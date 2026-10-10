@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Matter121/TUICalendar/calendar"
+	"github.com/Matter121/grepdiem/calendar"
 )
 
 func TestTodayPrintsEventsThenTodos(t *testing.T) {

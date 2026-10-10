@@ -1,4 +1,4 @@
-module github.com/Matter121/TUICalendar
+module github.com/Matter121/grepdiem
 
 go 1.27.1
 

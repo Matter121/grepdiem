@@ -10,12 +10,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Matter121/TUICalendar/calendar"
+	"github.com/Matter121/grepdiem/calendar"
 )
 
-// DefaultPath is $TUITODO_DATA, or tuitodo/data.json in the XDG data directory.
+// DefaultPath is $GREPDIEM_DATA, or grepdiem/data.json in the XDG data directory.
 func DefaultPath() (string, error) {
-	if p := os.Getenv("TUITODO_DATA"); p != "" {
+	if p := os.Getenv("GREPDIEM_DATA"); p != "" {
 		return p, nil
 	}
 	dir := os.Getenv("XDG_DATA_HOME")
@@ -26,12 +26,12 @@ func DefaultPath() (string, error) {
 		}
 		dir = filepath.Join(home, ".local", "share")
 	}
-	return filepath.Join(dir, "tuitodo", "data.json"), nil
+	return filepath.Join(dir, "grepdiem", "data.json"), nil
 }
 
 // ErrChangedElsewhere is returned by Undo when the data file was modified by
 // someone else, so that undoing would have thrown their change away.
-var ErrChangedElsewhere = errors.New("the data file changed outside tuitodo, so there is nothing to undo")
+var ErrChangedElsewhere = errors.New("the data file changed outside grepdiem, so there is nothing to undo")
 
 // Store is the Calendar and the data file it is kept in. Every change goes
 // through Change or Undo, which keep the two in step.

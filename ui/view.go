@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/Matter121/TUICalendar/calendar"
+	"github.com/Matter121/grepdiem/calendar"
 )
 
 // Colours are the terminal's own 16, so the app follows the user's theme.

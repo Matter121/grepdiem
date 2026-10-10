@@ -7,7 +7,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/Matter121/TUICalendar/calendar"
+	"github.com/Matter121/grepdiem/calendar"
 )
 
 var day = calendar.Date{Year: 2026, Month: 10, Day: 7}

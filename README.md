@@ -1,4 +1,4 @@
-# tuitodo
+# grepdiem
 
 A small terminal calendar with events and todos.
 
@@ -10,21 +10,21 @@ A small terminal calendar with events and todos.
 ## Install
 
 ```sh
-go install github.com/Matter121/TUICalendar/cmd/tuitodo@latest
+go install github.com/Matter121/grepdiem/cmd/grepdiem@latest
 ```
 
 Or build from a checkout:
 
 ```sh
-go build -ldflags="-s -w" -trimpath -o tuitodo ./cmd/tuitodo
+go build -ldflags="-s -w" -trimpath -o grepdiem ./cmd/grepdiem
 ```
 
 ## Use
 
 ```sh
-tuitodo            # open the calendar
-tuitodo today      # print today's events and todos
-tuitodo --version
+grepdiem            # open the calendar
+grepdiem today      # print today's events and todos
+grepdiem --version
 ```
 
 Press `?` inside the app for all keys. The essentials:
@@ -58,8 +58,8 @@ A preview under the line shows how it was understood before you press Enter.
 
 ## Data
 
-Everything is stored in `~/.local/share/tuitodo/data.json` (or
-`$XDG_DATA_HOME/tuitodo/data.json`). Set `TUITODO_DATA` to use another file.
+Everything is stored in `~/.local/share/grepdiem/data.json` (or
+`$XDG_DATA_HOME/grepdiem/data.json`). Set `GREPDIEM_DATA` to use another file.
 
 ## Development
 

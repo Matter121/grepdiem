@@ -1,4 +1,4 @@
-// Tuitodo is a terminal calendar with Events and Todos.
+// Grepdiem is a terminal calendar with Events and Todos.
 package main
 
 import (
@@ -10,25 +10,25 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/Matter121/TUICalendar/calendar"
-	"github.com/Matter121/TUICalendar/store"
-	"github.com/Matter121/TUICalendar/ui"
+	"github.com/Matter121/grepdiem/calendar"
+	"github.com/Matter121/grepdiem/store"
+	"github.com/Matter121/grepdiem/ui"
 )
 
 // version is set at release time with -ldflags "-X main.version=...".
 var version = ""
 
 const usage = `Usage:
-  tuitodo            open the calendar
-  tuitodo today      print today's events and todos
-  tuitodo --version  print the version
+  grepdiem            open the calendar
+  grepdiem today      print today's events and todos
+  grepdiem --version  print the version
 
-Data is kept in $TUITODO_DATA, or ~/.local/share/tuitodo/data.json.
+Data is kept in $GREPDIEM_DATA, or ~/.local/share/grepdiem/data.json.
 `
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "tuitodo:", err)
+		fmt.Fprintln(os.Stderr, "grepdiem:", err)
 		os.Exit(1)
 	}
 }
@@ -40,7 +40,7 @@ func run(args []string) error {
 	}
 	switch command {
 	case "--version", "-v", "version":
-		fmt.Println("tuitodo", buildVersion())
+		fmt.Println("grepdiem", buildVersion())
 		return nil
 	case "--help", "-h", "help":
 		fmt.Print(usage)

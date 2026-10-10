@@ -10,8 +10,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/Matter121/TUICalendar/calendar"
-	"github.com/Matter121/TUICalendar/store"
+	"github.com/Matter121/grepdiem/calendar"
+	"github.com/Matter121/grepdiem/store"
 )
 
 var now = time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)

@@ -1,4 +1,4 @@
-# TUItodo
+# grepdiem
 
 A personal terminal calendar that shows what happens on each day and what needs doing.
 
