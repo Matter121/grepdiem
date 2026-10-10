@@ -19,21 +19,6 @@ var weekdayNames = map[string]time.Weekday{
 	"sun": time.Sunday, "sunday": time.Sunday,
 }
 
-var monthNames = map[string]time.Month{
-	"jan": time.January, "january": time.January,
-	"feb": time.February, "february": time.February,
-	"mar": time.March, "march": time.March,
-	"apr": time.April, "april": time.April,
-	"may": time.May,
-	"jun": time.June, "june": time.June,
-	"jul": time.July, "july": time.July,
-	"aug": time.August, "august": time.August,
-	"sep": time.September, "sept": time.September, "september": time.September,
-	"oct": time.October, "october": time.October,
-	"nov": time.November, "november": time.November,
-	"dec": time.December, "december": time.December,
-}
-
 // ParseEvent reads a Quick-add line for an Event on the selected day.
 //
 // Keywords (weekdays, a time, "until ...") only count at the end of the line:
@@ -82,165 +67,23 @@ func splitQuoted(line string) (title string, words []string, quoted bool) {
 	return "", strings.Fields(line), false
 }
 
-// parseUntil recognises "until" (or "u") followed by "w50", "week 50",
-// "2026-12-13", "261213", "13/12", "13.12.2026", "13 dec", "dec 13" or
-// "13 dec 2026" at the end of words and returns how many words it used.
+// parseUntil recognises "until" (or "u") followed by a date phrase at the end
+// of words and returns how many words it used.
 func parseUntil(words []string, selected Date, spec *EventSpec) int {
 	if !spec.Until.IsZero() {
 		return 0
 	}
-	n := len(words)
-	isUntil := func(i int) bool {
-		return i >= 0 && (strings.EqualFold(words[i], "until") || strings.EqualFold(words[i], "u"))
-	}
-
-	if isUntil(n - 2) {
-		if d, ok := parseWeek(words[n-1], selected, true); ok {
-			spec.Until = d
-			return 2
+	for n := 1; n <= 3; n++ {
+		i := len(words) - n - 1
+		if i < 0 || !(strings.EqualFold(words[i], "until") || strings.EqualFold(words[i], "u")) {
+			continue
 		}
-		if d, ok := parseTypedDate(words[n-1]); ok {
+		if d, ok := parseDatePhrase(words[i+1:], selected, true); ok {
 			spec.Until = d
-			return 2
-		}
-		if d, ok := parseNumericDate(words[n-1], selected, true); ok {
-			spec.Until = d
-			return 2
-		}
-	}
-	if isUntil(n - 3) {
-		if d, ok := parseWeekWords(words[n-2], words[n-1], selected, true); ok {
-			spec.Until = d
-			return 3
-		}
-		if d, ok := parseDayMonth(words[n-2], words[n-1], selected, true); ok {
-			spec.Until = d
-			return 3
-		}
-	}
-	if isUntil(n - 4) {
-		if d, ok := parseDayMonthYear(words[n-3], words[n-2], words[n-1]); ok {
-			spec.Until = d
-			return 4
+			return n + 1
 		}
 	}
 	return 0
-}
-
-// parseWeek reads "w50". As an end it means the Sunday of the next such
-// week; otherwise the Monday of that week in the selected year.
-func parseWeek(word string, selected Date, asEnd bool) (Date, bool) {
-	if len(word) < 2 || (word[0] != 'w' && word[0] != 'W') {
-		return Date{}, false
-	}
-	week, err := strconv.Atoi(word[1:])
-	if err != nil || week < 1 || week > 53 {
-		return Date{}, false
-	}
-	year, _ := selected.ISOWeek()
-	monday := func(year int) Date {
-		return Date{year, time.January, 4}.Monday().AddDays((week - 1) * 7)
-	}
-	if !asEnd {
-		return monday(year), true
-	}
-	sunday := monday(year).AddDays(6)
-	if sunday.Before(selected) {
-		sunday = monday(year + 1).AddDays(6)
-	}
-	return sunday, true
-}
-
-// parseTypedDate reads "2026-12-13" or its short form "261213".
-func parseTypedDate(word string) (Date, bool) {
-	if d, err := ParseDate(word); err == nil {
-		return d, true
-	}
-	if len(word) != 6 {
-		return Date{}, false
-	}
-	t, err := time.Parse("20060102", "20"+word)
-	if err != nil {
-		return Date{}, false
-	}
-	return DateOf(t), true
-}
-
-// parseWeekWords reads "week 50", the spelled-out form of "w50".
-func parseWeekWords(word, number string, selected Date, asEnd bool) (Date, bool) {
-	if !strings.EqualFold(word, "week") {
-		return Date{}, false
-	}
-	return parseWeek("w"+number, selected, asEnd)
-}
-
-// parseNumericDate reads a day-first date such as "13/12", "13.12",
-// "13/12/26" or "13.12.2026". Without a year it is the selected year; as an
-// end, a date already past means next year.
-func parseNumericDate(word string, selected Date, asEnd bool) (Date, bool) {
-	sep := "/"
-	if !strings.Contains(word, sep) {
-		sep = "."
-	}
-	parts := strings.Split(word, sep)
-	if len(parts) != 2 && len(parts) != 3 {
-		return Date{}, false
-	}
-	var nums [3]int
-	for i, part := range parts {
-		n, err := strconv.Atoi(part)
-		if err != nil {
-			return Date{}, false
-		}
-		nums[i] = n
-	}
-	d := Date{selected.Year, time.Month(nums[1]), nums[0]}
-	if len(parts) == 3 {
-		switch len(parts[2]) {
-		case 2:
-			d.Year = 2000 + nums[2]
-		case 4:
-			d.Year = nums[2]
-		default:
-			return Date{}, false
-		}
-	} else if asEnd && d.Before(selected) {
-		d.Year++
-	}
-	if d.AddDays(0) != d { // 31/2
-		return Date{}, false
-	}
-	return d, true
-}
-
-// parseDayMonthYear reads "13 dec 2026" or "dec 13 2026".
-func parseDayMonthYear(day, month, year string) (Date, bool) {
-	y, err := strconv.Atoi(year)
-	if err != nil || len(year) != 4 {
-		return Date{}, false
-	}
-	return parseDayMonth(day, month, Date{Year: y}, false)
-}
-
-// parseDayMonth reads "13 dec" or "dec 13". As an end, a date already past
-// means next year.
-func parseDayMonth(day, month string, selected Date, asEnd bool) (Date, bool) {
-	if _, named := monthNames[strings.ToLower(day)]; named {
-		day, month = month, day
-	}
-	n, err := strconv.Atoi(day)
-	m, ok := monthNames[strings.ToLower(month)]
-	if err != nil || !ok {
-		return Date{}, false
-	}
-	d := Date{selected.Year, m, n}
-	if asEnd && d.Before(selected) {
-		d.Year++
-	}
-	if d.AddDays(0) != d { // 31 feb
-		return Date{}, false
-	}
-	return d, true
 }
 
 // parseWeekdays reads "tue", "tue,thu" or a range such as "mon-sat". A range

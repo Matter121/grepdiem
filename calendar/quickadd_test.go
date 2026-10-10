@@ -46,6 +46,10 @@ func TestParseEvent(t *testing.T) {
 		{"Study tue until 13.12.2027", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-12-13")}},
 		{"Study tue until dec 13", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2026-12-13")}},
 		{"Study tue until 13 dec 2027", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-12-13")}},
+		// A month alone ends on its first day.
+		{"Study tue until dec", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2026-12-01")}},
+		{"Study tue u Feb", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-02-01")}},
+		{"Study tue until oct", EventSpec{Title: "Study", Weekdays: []time.Weekday{time.Tuesday}, Until: d("2027-10-01")}},
 		{"Study tue until 31/2", EventSpec{Title: "Study tue until 31/2"}},
 		{"Study tue until 13/12/127", EventSpec{Title: "Study tue until 13/12/127"}},
 		// "u" is short for "until".
