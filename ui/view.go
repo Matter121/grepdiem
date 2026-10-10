@@ -365,7 +365,7 @@ func (m *Model) bottomView() string {
 		first = m.question + "  y yes   any other key no"
 	case modeMove:
 		first = fmt.Sprintf("Moving “%s”: pick a day", m.target.title())
-		second = "←↓↑→ day · [ ] month · t today · enter drop here · esc cancel"
+		second = "←↓↑→ day · H/L month · K/J year · t today · enter drop here · esc cancel"
 	default:
 		switch {
 		case m.focus == focusPanel:
@@ -374,9 +374,9 @@ func (m *Model) bottomView() string {
 				first = m.itemDetail(items[m.cursor])
 			}
 		case m.full:
-			second = "a event · o todo · enter open day · v compact view · ? help · q quit · ←↓↑→ day · t today · g go to · [ ] month · u undo"
+			second = "a event · o todo · enter open day · v compact view · ? help · q quit · ←↓↑→ day · t today · g go to · H/L month · K/J year · u undo"
 		default:
-			second = "a event · o todo · enter open day · v full view · ? help · q quit · ←↓↑→ day · t today · g go to · [ ] month · u undo"
+			second = "a event · o todo · enter open day · v full view · ? help · q quit · ←↓↑→ day · t today · g go to · H/L month · K/J year · u undo"
 		}
 	}
 	return " " + ansi.Truncate(first, m.width-2, "…") + "\n " + faint.Render(ansi.Truncate(second, m.width-2, "…"))
@@ -406,7 +406,8 @@ func (m *Model) helpView() string {
 	keys := [][2]string{
 		{"Anywhere", ""},
 		{"← → / h l", "previous / next day"},
-		{"[ ]", "previous / next month"},
+		{"shift+← → / H L", "previous / next month"},
+		{"shift+↑ ↓ / K J", "previous / next year"},
 		{"t", "jump to today"},
 		{"g", "go to a date or week (14 oct, 2026-10-14, 14/10, w50, dec, 2028)"},
 		{"a", "add an event on the selected day"},

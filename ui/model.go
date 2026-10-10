@@ -191,10 +191,14 @@ func (m *Model) navigate(key string, vertical bool) bool {
 		m.selectDay(m.selected.AddDays(-1))
 	case "right", "l":
 		m.selectDay(m.selected.AddDays(1))
-	case "[":
+	case "shift+left", "H":
 		m.selectDay(m.selected.AddMonths(-1))
-	case "]":
+	case "shift+right", "L":
 		m.selectDay(m.selected.AddMonths(1))
+	case "shift+up", "K":
+		m.selectDay(m.selected.AddMonths(-12))
+	case "shift+down", "J":
+		m.selectDay(m.selected.AddMonths(12))
 	case "t":
 		m.selectDay(m.today())
 	case "up", "k":

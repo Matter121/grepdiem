@@ -195,3 +195,27 @@ func TestFullViewNeedsAWideTerminal(t *testing.T) {
 		t.Error("still in the full view after the terminal shrank")
 	}
 }
+
+func TestShiftedKeysJumpMonthsAndYears(t *testing.T) {
+	m, _ := newModel(t)
+	steps := []struct {
+		key  tea.KeyMsg
+		want calendar.Date
+	}{
+		{tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("L")}, calendar.Date{Year: 2026, Month: 11, Day: 7}},
+		{tea.KeyMsg{Type: tea.KeyShiftLeft}, calendar.Date{Year: 2026, Month: 10, Day: 7}},
+		{tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("H")}, calendar.Date{Year: 2026, Month: 9, Day: 7}},
+		{tea.KeyMsg{Type: tea.KeyShiftRight}, calendar.Date{Year: 2026, Month: 10, Day: 7}},
+		{tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("J")}, calendar.Date{Year: 2027, Month: 10, Day: 7}},
+		{tea.KeyMsg{Type: tea.KeyShiftUp}, calendar.Date{Year: 2026, Month: 10, Day: 7}},
+		{tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("K")}, calendar.Date{Year: 2025, Month: 10, Day: 7}},
+		{tea.KeyMsg{Type: tea.KeyShiftDown}, calendar.Date{Year: 2026, Month: 10, Day: 7}},
+		{tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")}, calendar.Date{Year: 2026, Month: 10, Day: 7}},
+	}
+	for _, step := range steps {
+		m.Update(step.key)
+		if m.selected != step.want {
+			t.Fatalf("after %q: selected %v, want %v", step.key.String(), m.selected, step.want)
+		}
+	}
+}
