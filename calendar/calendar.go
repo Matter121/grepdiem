@@ -99,8 +99,14 @@ func (c *Calendar) newID() int {
 type Day struct {
 	Date Date
 	// Rows are the Events, All-day first and then by start time, followed by
-	// the Tasks: Overdue, then open, then Done.
+	// the Tasks: Overdue, then open, then Done. An unfinished Task is followed
+	// by its Subtasks.
 	Rows []Row
+}
+
+// WithoutSubtasks returns the Rows that stand for an Event or a Task.
+func (d Day) WithoutSubtasks() []Row {
+	return slices.DeleteFunc(slices.Clone(d.Rows), func(r Row) bool { return r.Kind == SubtaskRow })
 }
 
 // Day returns what is on d, given which date is today.
@@ -201,6 +207,9 @@ func (e Event) First() Date {
 func (c *Calendar) Clone() *Calendar {
 	cp := *c
 	cp.Tasks = slices.Clone(c.Tasks)
+	for i := range cp.Tasks {
+		cp.Tasks[i].Subtasks = slices.Clone(cp.Tasks[i].Subtasks)
+	}
 	cp.Events = slices.Clone(c.Events)
 	for i := range cp.Events {
 		cp.Events[i].Weekdays = slices.Clone(cp.Events[i].Weekdays)

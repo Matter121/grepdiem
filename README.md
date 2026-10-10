@@ -5,6 +5,7 @@ A small terminal calendar with events and tasks.
 - Month grid with a panel for the selected day
 - Weekly recurring events in one line: `Study tue thu 13-15 until w50`
 - Tasks per day; unfinished ones roll over to today as overdue
+- Subtasks in the same line: `Pack s passport, charger, socks`
 - One JSON file, no database, no config
 
 ## Install
@@ -35,6 +36,7 @@ Press `?` inside the app for all keys. The essentials:
 | `a` / `o` | add an event / a task on the selected day |
 | `enter` | open the selected day |
 | `space` `e` `d` `m` `c` | tick, edit, delete, move, recolour |
+| `>` | move a task to the next day |
 | `g`, `t` | go to a date, week, month (`dec`) or year (`2028`), today |
 | shift+arrows / `HJKL` | change month (left / right) or year (up / down) |
 | `u` | undo the last change |
@@ -55,6 +57,26 @@ Type a title, then any of these at the end of the line:
 | `"Apollo 13" fri 20` | quotes keep the title exactly as typed |
 
 A preview under the line shows how it was understood before you press Enter.
+
+### Adding tasks
+
+Type a title. To give the task subtasks, add `subtasks` (or `s`) and list them
+with commas between:
+
+| Line | Meaning |
+|---|---|
+| `Buy milk` | one task |
+| `Pack s passport, charger, socks` | a task with three subtasks |
+| `Pack subtasks passport, charger` | `s` is short for `subtasks` |
+| `"Season s finale" s snacks, invite Sam` | quotes keep the title exactly as typed |
+
+Each subtask is ticked on its own and the task shows how many are done (`1/3`).
+Ticking the task itself is what makes it done. Subtasks have no date: they move
+and go overdue with their task.
+
+`e` on a task reopens the whole line, so that is where subtasks are added,
+removed or reordered; a subtask whose text is unchanged keeps its tick. `e` on
+a subtask edits just that one. The full view shows a task with its count only.
 
 ## Data
 

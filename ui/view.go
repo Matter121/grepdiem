@@ -261,7 +261,7 @@ func junction(up, down, left, right bool) string {
 // most width wide. A day with more than fits ends in "+2 more", and the
 // day the cursor is in scrolls to keep the cursor's row in sight.
 func (m *Model) dayBox(date, today calendar.Date, width, rows int) []string {
-	list := m.store.Calendar().Day(date, today).Rows
+	list := m.store.Calendar().Day(date, today).WithoutSubtasks()
 	otherMonth := date.Month != m.selected.Month
 	cursor := -1
 	if date == m.selected && m.focus == focusPanel {
@@ -308,19 +308,23 @@ func fullRow(r calendar.Row, otherMonth bool, width int) string {
 			clock = ""
 		}
 	}
+	count := ""
+	if c := r.Count(); c != "" {
+		count = faint.Render(" " + c)
+	}
 	switch {
 	case r.Kind == calendar.EventRow && otherMonth:
 		return faint.Render("● " + clock + r.Title())
 	case r.Kind == calendar.EventRow:
 		return marker(r.Event) + " " + faint.Render(clock) + r.Title()
 	case r.State == calendar.Done:
-		return faint.Render(r.Mark()+" ") + doneText.Render(r.Title())
+		return faint.Render(r.Mark()+" ") + doneText.Render(r.Title()) + count
 	case r.State == calendar.Overdue:
-		return overdue.Render(r.Mark() + " " + r.Title())
+		return overdue.Render(r.Mark()+" "+r.Title()) + count
 	case otherMonth:
-		return faint.Render(r.Mark() + " " + r.Title())
+		return faint.Render(r.Mark()+" "+r.Title()) + count
 	}
-	return r.Mark() + " " + r.Title()
+	return r.Mark() + " " + r.Title() + count
 }
 
 // rowDetail says in full what a Row of the Full view had no room for.
@@ -328,10 +332,11 @@ func (m *Model) rowDetail(r calendar.Row) string {
 	if r.Kind == calendar.EventRow {
 		return calendar.Describe(r.Event.Spec(), m.selected)
 	}
+	detail := calendar.DescribeTask(r.Task.Spec())
 	if note := r.Note(); note != "" {
-		return r.Title() + " · " + note
+		detail += " · " + note
 	}
-	return r.Title()
+	return detail
 }
 
 // markerRow draws up to three Markers and a "+" if there are more Events.
@@ -377,7 +382,7 @@ func (m *Model) panelView(today calendar.Date, width, height int) string {
 
 	cursorLine := 0
 	for i, r := range rows {
-		if i > 0 && r.Kind != rows[i-1].Kind {
+		if i > 0 && r.Kind != calendar.EventRow && rows[i-1].Kind == calendar.EventRow {
 			lines = append(lines, "")
 		}
 		line := "  "
@@ -395,10 +400,18 @@ func (m *Model) panelView(today calendar.Date, width, height int) string {
 			if r.Event.Recurring() {
 				line += faint.Render(" ↻")
 			}
-		case r.State == calendar.Done:
-			line += faint.Render(r.Mark()+" ") + doneText.Render(r.Title())
 		default:
-			line += r.Mark() + " " + r.Title()
+			if r.Kind == calendar.SubtaskRow {
+				line += "    "
+			}
+			if r.State == calendar.Done {
+				line += faint.Render(r.Mark()+" ") + doneText.Render(r.Title())
+			} else {
+				line += r.Mark() + " " + r.Title()
+			}
+			if count := r.Count(); count != "" {
+				line += faint.Render("  " + count)
+			}
 			if note := r.Note(); note != "" {
 				line += overdue.Render("  " + note)
 			}
@@ -424,7 +437,8 @@ func (m *Model) bottomView() string {
 	case modeInput:
 		label := map[inputKind]string{
 			inputAddEvent: "Event", inputEditEvent: "Edit event",
-			inputAddTask: "Task", inputEditTask: "Edit task", inputGoto: "Go to",
+			inputAddTask: "Task", inputEditTask: "Edit task", inputEditSubtask: "Edit subtask",
+			inputGoto: "Go to",
 		}[m.inputKind]
 		prompt := heading.Render(label+" ›") + " "
 		first = prompt + m.input.view(m.width-lipgloss.Width(prompt)-1)
@@ -463,6 +477,13 @@ func (m *Model) inputHint() string {
 			return "e.g.  Study tue thu 13-15 until w50   ·   Dentist 10:30"
 		}
 		return calendar.Describe(calendar.ParseEvent(text, m.selected), m.selected)
+	case inputAddTask, inputEditTask:
+		if text == "" {
+			return "e.g.  Buy milk   ·   Pack s passport, charger, socks"
+		}
+		if spec := calendar.ParseTask(text); len(spec.Subtasks) > 0 {
+			return calendar.DescribeTask(spec)
+		}
 	case inputGoto:
 		if d, ok := calendar.ParseGoto(text, m.selected); ok {
 			return d.Format("Mon 2 Jan 2006")
@@ -491,11 +512,11 @@ func (m *Model) helpView() string {
 		{"enter / tab", "open the selected day"},
 		{"", ""},
 		{"Day", ""},
-		{"↑ ↓ / k j", "select an event or task"},
-		{"space", "tick or untick a task"},
-		{"e", "edit"},
+		{"↑ ↓ / k j", "select an event, task or subtask"},
+		{"space", "tick or untick a task or subtask"},
+		{"e", "edit (a task's line holds its subtasks; a subtask is edited alone)"},
 		{"d", "delete (a recurring event asks: this occurrence or all)"},
-		{"m", "move to another day"},
+		{"m", "move to another day (a subtask moves with its task)"},
 		{">", "move a task to the next day"},
 		{"c", "change an event's colour"},
 		{"esc / tab", "back to the calendar"},
@@ -508,6 +529,12 @@ func (m *Model) helpView() string {
 		{"Gym mon until 13 dec", "also: until week 50, 2026-12-13, 261213, 13/12, dec (its first day), or no end"},
 		{"Gym mon u 13 dec", "u is short for until"},
 		{`"Apollo 13" fri 20`, "quotes keep the title exactly as typed"},
+		{"", ""},
+		{"Adding tasks", ""},
+		{"Buy milk", "one task"},
+		{"Pack s passport, charger", "with subtasks, separated by commas"},
+		{"Pack subtasks passport", "s is short for subtasks"},
+		{`"Season s finale" s snacks`, "quotes keep the title exactly as typed"},
 	}
 	var b strings.Builder
 	for _, k := range keys {

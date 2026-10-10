@@ -261,3 +261,114 @@ func TestOverdueAndDoneTasksShowInBothViews(t *testing.T) {
 		t.Errorf("bottom line lacks where the overdue task comes from:\n%s", view)
 	}
 }
+
+func TestTaskIsAddedWithSubtasksThatAreTickedOnTheirOwn(t *testing.T) {
+	m, path := newModel(t)
+	resize(m, 120, 40)
+	press(m, "o", "Pack s passport, charger")
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "Pack · 2 subtasks: passport, charger") {
+		t.Errorf("no preview of how the line was read:\n%s", view)
+	}
+	press(m, "enter", "enter", "j", " ")
+
+	view := ansi.Strip(m.View())
+	for _, want := range []string{"[ ] Pack  1/2", "›     [x] passport", "      [ ] charger"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("compact view lacks %q:\n%s", want, view)
+		}
+	}
+	if data, _ := os.ReadFile(path); !strings.Contains(string(data), `"title": "passport"`) {
+		t.Errorf("file does not have the subtask: %s", data)
+	}
+
+	press(m, "u")
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "[ ] Pack  0/2") {
+		t.Errorf("undo did not untick the subtask:\n%s", view)
+	}
+}
+
+func TestEditingATaskLineKeepsTicksAndEditingASubtaskRenamesIt(t *testing.T) {
+	m, _ := newModel(t)
+	resize(m, 120, 40)
+	press(m, "o", "Pack s passport, charger", "enter", "enter", "j", " ")
+
+	press(m, "k", "e")
+	if got := m.input.String(); got != "Pack s passport, charger" {
+		t.Fatalf("edit line = %q", got)
+	}
+	press(m, ", socks", "enter")
+	if got := titles(m); strings.Join(got, "|") != "Pack|passport|charger|socks" {
+		t.Fatalf("rows %v", got)
+	}
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "[ ] Pack  1/3") || !strings.Contains(view, "[x] passport") {
+		t.Errorf("passport lost its tick:\n%s", view)
+	}
+
+	press(m, "j", "e")
+	if got := m.input.String(); got != "passport" {
+		t.Fatalf("subtask edit line = %q", got)
+	}
+	press(m, ", visa", "enter")
+	if m.mode != modeInput || !strings.Contains(m.status, "comma") {
+		t.Errorf("a comma in a subtask should be refused: mode %v, status %q", m.mode, m.status)
+	}
+	press(m, "esc", "e", " and visa", "enter")
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "[x] passport and visa") {
+		t.Errorf("subtask was not renamed with its tick kept:\n%s", view)
+	}
+}
+
+func TestSubtaskIsDeletedAloneAndMovesOnlyWithItsTask(t *testing.T) {
+	m, _ := newModel(t)
+	resize(m, 120, 40)
+	press(m, "o", "Pack s passport, charger", "enter", "enter", "j")
+
+	for _, key := range []string{"m", ">"} {
+		press(m, key)
+		if m.mode != modeNormal || m.status != "A subtask moves with its task" {
+			t.Errorf("%s on a subtask: mode %v, status %q", key, m.mode, m.status)
+		}
+	}
+	press(m, "d")
+	if got := titles(m); strings.Join(got, "|") != "Pack|charger" {
+		t.Fatalf("after deleting a subtask: %v", got)
+	}
+
+	press(m, "k", ">", "l")
+	if got := titles(m); strings.Join(got, "|") != "Pack|charger" {
+		t.Errorf("the task should have moved with its subtask: %v", got)
+	}
+	press(m, "enter", "d")
+	if got := titles(m); len(got) != 0 {
+		t.Errorf("deleting the task should take its subtasks: %v", got)
+	}
+}
+
+func TestFullViewShowsATaskWithItsCountButNotItsSubtasks(t *testing.T) {
+	m, _ := newModel(t)
+	resize(m, 160, 40)
+	press(m, "o", "Pack s passport, charger", "enter", "o", "Buy milk", "enter")
+	press(m, "enter", "j", " ", "j", "j") // tick passport, then on to Buy milk
+
+	press(m, "v")
+	full := ansi.Strip(m.View())
+	if !strings.Contains(full, "[ ] Pack 1/2") || strings.Contains(full, "passport") {
+		t.Errorf("full view should list Pack with its count and no subtasks:\n%s", full)
+	}
+	if !strings.Contains(full, "›[ ] Buy milk") {
+		t.Errorf("the cursor should still be on Buy milk:\n%s", full)
+	}
+	press(m, "k")
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "Pack · 2 subtasks: passport, charger") {
+		t.Errorf("bottom line should say what the task holds:\n%s", view)
+	}
+
+	press(m, "v")
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "› [ ] Pack  1/2") {
+		t.Fatalf("back in the compact view the cursor should be on Pack:\n%s", view)
+	}
+	press(m, " ")
+	if view := ansi.Strip(m.View()); !strings.Contains(view, "[x] Pack  1/2") || strings.Contains(view, "passport") {
+		t.Errorf("a done task should be one line without its subtasks:\n%s", view)
+	}
+}

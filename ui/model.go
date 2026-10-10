@@ -37,6 +37,7 @@ const (
 	inputAddTask
 	inputEditEvent
 	inputEditTask
+	inputEditSubtask
 	inputGoto
 )
 
@@ -80,8 +81,14 @@ func (m *Model) Init() tea.Cmd { return tick() }
 
 func (m *Model) today() calendar.Date { return calendar.DateOf(m.now()) }
 
+// rows are what the cursor moves through: the selected day's Rows, without
+// the Subtasks in the Full view, which has no room to list them.
 func (m *Model) rows() []calendar.Row {
-	return m.store.Calendar().Day(m.selected, m.today()).Rows
+	day := m.store.Calendar().Day(m.selected, m.today())
+	if m.full {
+		return day.WithoutSubtasks()
+	}
+	return day.Rows
 }
 
 // change applies an edit and saves it. If that fails it says why in the
@@ -241,15 +248,21 @@ func (m *Model) updateNormal(msg tea.KeyMsg) tea.Cmd {
 	case "down", "j":
 		m.cursor = min(m.cursor+1, len(rows)-1)
 	case " ":
-		if it.Kind == calendar.TaskRow {
+		switch it.Kind {
+		case calendar.TaskRow:
 			today := m.today()
 			m.change(func(c *calendar.Calendar) { c.ToggleTask(it.Task.ID, today) })
+		case calendar.SubtaskRow:
+			m.change(func(c *calendar.Calendar) { c.ToggleSubtask(it.Task.ID, it.Sub) })
 		}
 	case "e":
 		m.target = it
-		if it.Kind == calendar.TaskRow {
-			m.openInput(inputEditTask, it.Task.Title)
-		} else {
+		switch it.Kind {
+		case calendar.TaskRow:
+			m.openInput(inputEditTask, calendar.TaskLine(it.Task.Spec()))
+		case calendar.SubtaskRow:
+			m.openInput(inputEditSubtask, it.Title())
+		default:
 			m.openInput(inputEditEvent, calendar.Line(it.Event.Spec()))
 		}
 	case "d":
@@ -271,13 +284,23 @@ func (m *Model) updateNormal(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-// toggleView switches between Compact view and Full view.
+// toggleView switches between Compact view and Full view. The cursor stays
+// on its Event or Task; from a Subtask it goes to the Task.
 func (m *Model) toggleView() {
 	if !m.full && m.width < fullViewWidth {
 		m.status = fmt.Sprintf("Full view needs a terminal at least %d wide", fullViewWidth)
 		return
 	}
+	var at calendar.Row
+	if rows := m.rows(); m.cursor < len(rows) {
+		at = rows[m.cursor]
+	}
 	m.full = !m.full
+	for i, r := range m.rows() {
+		if r.Kind != calendar.SubtaskRow && r.Event.ID == at.Event.ID && r.Task.ID == at.Task.ID {
+			m.cursor = i
+		}
+	}
 }
 
 func (m *Model) undoLast() {
@@ -317,12 +340,27 @@ func (m *Model) submit() {
 		return
 	}
 	switch m.inputKind {
-	case inputAddTask:
-		day := m.selected
-		m.change(func(c *calendar.Calendar) { c.AddTask(day, text) })
-	case inputEditTask:
-		id := m.target.Task.ID
-		m.change(func(c *calendar.Calendar) { c.RenameTask(id, text) })
+	case inputAddTask, inputEditTask:
+		spec := calendar.ParseTask(text)
+		if spec.Title == "" {
+			m.status = "A task needs a title"
+			return
+		}
+		day, id := m.selected, m.target.Task.ID
+		m.change(func(c *calendar.Calendar) {
+			if m.inputKind == inputAddTask {
+				c.AddTask(day, spec.Title, spec.Subtasks...)
+			} else {
+				c.UpdateTask(id, spec.Title, spec.Subtasks...)
+			}
+		})
+	case inputEditSubtask:
+		if strings.Contains(text, ",") {
+			m.status = "A subtask can't have a comma in it"
+			return
+		}
+		it := m.target
+		m.change(func(c *calendar.Calendar) { c.RenameSubtask(it.Task.ID, it.Sub, text) })
 	case inputGoto:
 		d, ok := calendar.ParseGoto(text, m.selected)
 		if !ok {
@@ -383,6 +421,8 @@ func (m *Model) delete(it calendar.Row) {
 	switch {
 	case it.Kind == calendar.TaskRow:
 		m.change(func(c *calendar.Calendar) { c.DeleteTask(it.Task.ID) })
+	case it.Kind == calendar.SubtaskRow:
+		m.change(func(c *calendar.Calendar) { c.DeleteSubtask(it.Task.ID, it.Sub) })
 	case it.Event.Recurring():
 		m.target = it
 		m.mode = modeDeleteChoice
@@ -408,6 +448,8 @@ func (m *Model) updateDeleteChoice(msg tea.KeyMsg) {
 
 func (m *Model) movable(it calendar.Row) bool {
 	switch {
+	case it.Kind == calendar.SubtaskRow:
+		m.status = "A subtask moves with its task"
 	case it.Kind == calendar.EventRow && it.Event.Recurring():
 		m.status = "A recurring event can't be moved; edit its weekdays with e"
 	case it.State == calendar.Done:

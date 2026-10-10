@@ -86,12 +86,11 @@ func printToday(w io.Writer, cal *calendar.Calendar, today calendar.Date) {
 		return
 	}
 	for i, r := range rows {
-		if i == 0 || r.Kind != rows[i-1].Kind {
-			if r.Kind == calendar.EventRow {
-				fmt.Fprintln(w, "\nEvents")
-			} else {
-				fmt.Fprintln(w, "\nTasks")
-			}
+		switch {
+		case r.Kind == calendar.EventRow && i == 0:
+			fmt.Fprintln(w, "\nEvents")
+		case r.Kind != calendar.EventRow && (i == 0 || rows[i-1].Kind == calendar.EventRow):
+			fmt.Fprintln(w, "\nTasks")
 		}
 		if r.Kind == calendar.EventRow {
 			when := r.Time()
@@ -102,6 +101,12 @@ func printToday(w io.Writer, cal *calendar.Calendar, today calendar.Date) {
 			continue
 		}
 		line := "  " + r.Mark() + " " + r.Title()
+		if r.Kind == calendar.SubtaskRow {
+			line = "    " + line
+		}
+		if count := r.Count(); count != "" {
+			line += "  " + count
+		}
 		if note := r.Note(); note != "" {
 			line += " (" + note + ")"
 		}

@@ -27,20 +27,24 @@ An Event with no time of day.
 Something to be done and ticked off, attached to a date.
 _Avoid_: Todo, item
 
+**Subtask**:
+One step of a Task, with its own tick and no date of its own; it goes wherever its Task goes. Ticking Subtasks never makes the Task Done.
+_Avoid_: Step, checklist item, child
+
 **Overdue**:
 The state of an unfinished Task whose date has passed; it is shown under today until ticked or deleted.
 _Avoid_: Late, rolled over
 
 **Done**:
-The state of a Task that has been ticked; it is shown on the day it was ticked, not the day it was attached to.
+The state of a Task that has been ticked; it is shown on the day it was ticked, not the day it was attached to, as one Row without its Subtasks. A ticked Subtask is also Done, which changes nothing about its Task.
 _Avoid_: Completed, finished, checked
 
 **Row**:
-One line in a day's listing, standing for one Event or one Task.
+One line in a day's listing, standing for one Event, one Task or one Subtask.
 _Avoid_: Item, entry, line
 
 **Quick-add**:
-The single line of text from which an Event or Task is created.
+The single line of text from which an Event, or a Task with its Subtasks, is created.
 _Avoid_: Command, prompt, form
 
 **Marker**:
@@ -52,13 +56,13 @@ An Event that happens on a single date and does not repeat.
 _Avoid_: Single event, normal event
 
 **Move**:
-Changing the date a Task or One-off Event is attached to; a moved Task is no longer Overdue.
+Changing the date a Task or One-off Event is attached to; a moved Task is no longer Overdue and takes its Subtasks with it.
 _Avoid_: Reschedule, postpone
 
 **Compact view**:
-The small month grid with a Marker for each Event, beside a panel that lists the selected day's Events and Tasks.
+The small month grid with a Marker for each Event, beside a panel that lists the selected day's Events, Tasks and Subtasks.
 _Avoid_: Normal view, small view, default view
 
 **Full view**:
-The month grid filling the whole terminal, with every day listing its own Events and Tasks.
+The month grid filling the whole terminal, with every day listing its own Events and Tasks; a Task's Subtasks are shown only as a count.
 _Avoid_: Big view, month view, expanded view

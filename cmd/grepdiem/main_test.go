@@ -23,6 +23,8 @@ func TestTodayPrintsEventsThenTasks(t *testing.T) {
 	c.AddTask(earlier, "Call landlord")
 	ticked := c.AddTask(today, "Water plants")
 	c.ToggleTask(ticked.ID, today)
+	pack := c.AddTask(today, "Pack", "passport", "charger")
+	c.ToggleSubtask(pack.ID, 0)
 
 	var out strings.Builder
 	printToday(&out, c, today)
@@ -35,6 +37,9 @@ Events
 Tasks
   [ ] Call landlord (overdue from Tue 6 Oct)
   [ ] Buy milk
+  [ ] Pack  1/2
+      [x] passport
+      [ ] charger
   [x] Water plants
 `
 	if out.String() != want {
