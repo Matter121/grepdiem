@@ -115,7 +115,7 @@ go test ./...
 This is a fully vibe-coded app with Claude. Made this project so I would learn to develop with AI and also how I want my calendar to work.
 The skills I used in Claude with this project are from Matt Pocock: [Github]([https://github.com/mattpocock/skills)
 
-As before this only saves the events and tasks to a JSON file. I may later add syncing with external calendar apps.
+As noted before this only saves the events and tasks to a JSON file. I may later add syncing with external calendar apps.
 
 
 ## License
